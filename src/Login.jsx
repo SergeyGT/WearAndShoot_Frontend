@@ -1,11 +1,10 @@
+// src/Login.jsx
 import { useState } from 'react'
 
-function App() {
+export default function Login() {
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
+    usernameOrEmail: '',
     password: '',
-    confirmPassword: '',
   })
 
   const [status, setStatus] = useState({ type: '', message: '' })
@@ -17,26 +16,15 @@ function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-
-    // Проверка совпадения паролей на фронте
-    if (formData.password !== formData.confirmPassword) {
-      setStatus({
-        type: 'error',
-        message: 'Пароли не совпадают',
-      })
-      return
-    }
-
     setStatus({ type: '', message: '' })
     setLoading(true)
 
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetch('/api/auth/login', {  // ← предполагаемый endpoint логина
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: formData.username,
-          email: formData.email,
           password: formData.password,
         }),
       })
@@ -44,24 +32,16 @@ function App() {
       const data = await res.json()
 
       if (!res.ok) {
-        // Если сервер вернул ошибку (например, 400 или 409 — пользователь уже существует)
-        if (data.message?.toLowerCase().includes('уже существует') || res.status === 409) {
-          setStatus({
-            type: 'info',
-            message: 'Аккаунт уже существует. Войдите в систему.',
-          })
-        } else {
-          throw new Error(data.message || 'Ошибка регистрации')
-        }
-        return
+        throw new Error(data.message || 'Неверный логин или пароль')
       }
 
-      // Успех — показываем сообщение и редиректим через 1.5 секунды
       setStatus({
         type: 'success',
-        message: `Аккаунт создан! ID: ${data.id || '—'}. Перенаправляем...`,
+        message: 'Вход выполнен! Перенаправляем...',
       })
 
+      // Здесь должен быть редирект после успешного логина
+      // (например, сохранить токен и перейти на /cloth/)
       setTimeout(() => {
         window.location.href = '/cloth/'
       }, 1500)
@@ -69,7 +49,7 @@ function App() {
     } catch (err) {
       setStatus({
         type: 'error',
-        message: err.message || 'Что-то пошло не так',
+        message: err.message || 'Ошибка входа',
       })
     } finally {
       setLoading(false)
@@ -78,7 +58,6 @@ function App() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-amber-400 via-yellow-300 to-amber-500 p-4 sm:p-6">
-      {/* карточка */}
       <div className="
         w-full max-w-xl 
         bg-gradient-to-b from-purple-950 to-indigo-950 
@@ -90,7 +69,7 @@ function App() {
         animate-fade-in-up opacity-0 translate-y-8
       " style={{ animationDelay: '0.3s', animationDuration: '0.9s' }}>
         
-        {/* Заголовок */}
+        {/* Заголовок — другой цвет и текст */}
         <div className="px-10 pt-14 pb-10 text-center">
           <h1 className="
             text-5xl sm:text-6xl font-black 
@@ -98,19 +77,19 @@ function App() {
             bg-clip-text text-transparent 
             drop-shadow-lg tracking-tight
           ">
-            Wear & Shoot
+            Вход в Wear & Shoot
           </h1>
           <p className="mt-4 text-purple-200/90 text-xl sm:text-2xl font-medium">
-            Создай аккаунт и начни творить
+            Войди и продолжи творить
           </p>
         </div>
 
-        {/* Форма */}
+        {/* Форма логина — меньше полей, другой порядок */}
         <form onSubmit={handleSubmit} className="px-8 sm:px-12 pb-14 space-y-7">
-          {/* Никнейм */}
+          {/* Логин / Email */}
           <div>
             <label className="block text-base sm:text-lg font-semibold text-purple-200 mb-3">
-              Никнейм
+              Никнейм или Email
             </label>
             <input
               type="text"
@@ -132,36 +111,7 @@ function App() {
                 outline-none 
                 shadow-inner
               "
-              placeholder="cool_guy_228"
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label className="block text-base sm:text-lg font-semibold text-purple-200 mb-3">
-              Email
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              className="
-                w-full px-6 py-5 
-                bg-purple-950/70 
-                border-2 border-purple-600/60 
-                rounded-2xl 
-                text-purple-100 
-                placeholder-purple-400/70 
-                focus:border-amber-400 
-                focus:ring-4 focus:ring-amber-400/30 
-                focus:bg-purple-950/90 
-                transition-all duration-300 
-                outline-none 
-                shadow-inner
-              "
-              placeholder="you@example.com"
+              placeholder="cool_guy_228 или you@example.com"
             />
           </div>
 
@@ -194,36 +144,7 @@ function App() {
             />
           </div>
 
-          {/* Повторить пароль */}
-          <div>
-            <label className="block text-base sm:text-lg font-semibold text-purple-200 mb-3">
-              Повторите пароль
-            </label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              className="
-                w-full px-6 py-5 
-                bg-purple-950/70 
-                border-2 border-purple-600/60 
-                rounded-2xl 
-                text-purple-100 
-                placeholder-purple-400/70 
-                focus:border-amber-400 
-                focus:ring-4 focus:ring-amber-400/30 
-                focus:bg-purple-950/90 
-                transition-all duration-300 
-                outline-none 
-                shadow-inner
-              "
-              placeholder="••••••••••"
-            />
-          </div>
-
-          {/* Кнопка */}
+          {/* Кнопка входа */}
           <button
             type="submit"
             disabled={loading}
@@ -236,7 +157,7 @@ function App() {
               }
             `}
           >
-            {loading ? 'Создаём...' : 'Зарегистрироваться'}
+            {loading ? 'Входим...' : 'Войти'}
           </button>
 
           {/* Сообщение */}
@@ -244,27 +165,18 @@ function App() {
             <div className={`mt-6 p-6 rounded-2xl text-center font-medium text-lg border-2 shadow-lg ${
               status.type === 'success'
                 ? 'bg-green-900/70 border-green-600 text-green-100'
-                : status.type === 'info'
-                ? 'bg-blue-900/70 border-blue-600 text-blue-100'
                 : 'bg-red-900/70 border-red-600 text-red-100'
             }`}>
               {status.message}
-              {status.type === 'info' && (
-                <div className="mt-3">
-                  <a href="/login" className="text-blue-300 hover:text-blue-200 font-bold">
-                    Перейти к входу →
-                  </a>
-                </div>
-              )}
             </div>
           )}
         </form>
 
         {/* Футер */}
         <div className="px-10 pb-12 text-center text-purple-300/90 text-lg">
-          Уже есть аккаунт?{' '}
-          <a href="/login" className="text-amber-300 hover:text-amber-200 font-bold transition-colors">
-            Войти
+          Нет аккаунта?{' '}
+          <a href="/register" className="text-amber-300 hover:text-amber-200 font-bold transition-colors">
+            Зарегистрироваться
           </a>
         </div>
       </div>
@@ -284,5 +196,3 @@ function App() {
     </div>
   )
 }
-
-export default App
