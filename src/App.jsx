@@ -1,84 +1,102 @@
-import { useState } from 'react'
+// src/App.jsx — регистрация
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function App() {
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     username: '',
     email: '',
     password: '',
     confirmPassword: '',
-  })
+  });
 
-  const [status, setStatus] = useState({ type: '', message: '' })
-  const [loading, setLoading] = useState(false)
+  const [status, setStatus] = useState({ type: '', message: '' });
+  const [loading, setLoading] = useState(false);
+
+  // Проверяем, залогинен ли пользователь уже
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('http://localhost:8080/auth/me', {
+          credentials: 'include',
+        });
+
+        if (res.ok) {
+          // уже авторизован → сразу на каталог
+          navigate('/cloth', { replace: true });
+        }
+      } catch {
+        // если ошибка сети — остаёмся на странице
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
 
   const handleChange = (e) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
-  }
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    // Проверка совпадения паролей на фронте
     if (formData.password !== formData.confirmPassword) {
-      setStatus({
-        type: 'error',
-        message: 'Пароли не совпадают',
-      })
-      return
+      setStatus({ type: 'error', message: 'Пароли не совпадают' });
+      return;
     }
 
-    setStatus({ type: '', message: '' })
-    setLoading(true)
+    setStatus({ type: '', message: '' });
+    setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetch('http://localhost:8080/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           username: formData.username,
           email: formData.email,
           password: formData.password,
         }),
-      })
+      });
 
-      const data = await res.json()
+      const data = await res.json();
 
       if (!res.ok) {
-        // Если сервер вернул ошибку (например, 400 или 409 — пользователь уже существует)
-        if (data.message?.toLowerCase().includes('уже существует') || res.status === 409) {
+        if (res.status === 409 || data.message?.toLowerCase().includes('уже существует')) {
           setStatus({
             type: 'info',
             message: 'Аккаунт уже существует. Войдите в систему.',
-          })
+          });
         } else {
-          throw new Error(data.message || 'Ошибка регистрации')
+          throw new Error(data.message || 'Ошибка регистрации');
         }
-        return
+        return;
       }
 
-      // Успех — показываем сообщение и редиректим через 1.5 секунды
       setStatus({
         type: 'success',
-        message: `Аккаунт создан! ID: ${data.id || '—'}. Перенаправляем...`,
-      })
+        message: 'Аккаунт создан! Перенаправляем на каталог...',
+      });
 
+      // Редирект после регистрации
       setTimeout(() => {
-        window.location.href = '/cloth/'
-      }, 1500)
-
+        navigate('/cloth', { replace: true });
+      }, 1500);
     } catch (err) {
       setStatus({
         type: 'error',
         message: err.message || 'Что-то пошло не так',
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-amber-400 via-yellow-300 to-amber-500 p-4 sm:p-6">
-      {/* карточка */}
       <div className="
         w-full max-w-xl 
         bg-gradient-to-b from-purple-950 to-indigo-950 
@@ -90,7 +108,6 @@ function App() {
         animate-fade-in-up opacity-0 translate-y-8
       " style={{ animationDelay: '0.3s', animationDuration: '0.9s' }}>
         
-        {/* Заголовок */}
         <div className="px-10 pt-14 pb-10 text-center">
           <h1 className="
             text-5xl sm:text-6xl font-black 
@@ -105,9 +122,7 @@ function App() {
           </p>
         </div>
 
-        {/* Форма */}
         <form onSubmit={handleSubmit} className="px-8 sm:px-12 pb-14 space-y-7">
-          {/* Никнейм */}
           <div>
             <label className="block text-base sm:text-lg font-semibold text-purple-200 mb-3">
               Никнейм
@@ -136,7 +151,6 @@ function App() {
             />
           </div>
 
-          {/* Email */}
           <div>
             <label className="block text-base sm:text-lg font-semibold text-purple-200 mb-3">
               Email
@@ -165,7 +179,6 @@ function App() {
             />
           </div>
 
-          {/* Пароль */}
           <div>
             <label className="block text-base sm:text-lg font-semibold text-purple-200 mb-3">
               Пароль
@@ -194,7 +207,6 @@ function App() {
             />
           </div>
 
-          {/* Повторить пароль */}
           <div>
             <label className="block text-base sm:text-lg font-semibold text-purple-200 mb-3">
               Повторите пароль
@@ -223,7 +235,6 @@ function App() {
             />
           </div>
 
-          {/* Кнопка */}
           <button
             type="submit"
             disabled={loading}
@@ -239,14 +250,11 @@ function App() {
             {loading ? 'Создаём...' : 'Зарегистрироваться'}
           </button>
 
-          {/* Сообщение */}
           {status.message && (
             <div className={`mt-6 p-6 rounded-2xl text-center font-medium text-lg border-2 shadow-lg ${
-              status.type === 'success'
-                ? 'bg-green-900/70 border-green-600 text-green-100'
-                : status.type === 'info'
-                ? 'bg-blue-900/70 border-blue-600 text-blue-100'
-                : 'bg-red-900/70 border-red-600 text-red-100'
+              status.type === 'success' ? 'bg-green-900/70 border-green-600 text-green-100' :
+              status.type === 'info'    ? 'bg-blue-900/70 border-blue-600 text-blue-100' :
+                                          'bg-red-900/70 border-red-600 text-red-100'
             }`}>
               {status.message}
               {status.type === 'info' && (
@@ -260,7 +268,6 @@ function App() {
           )}
         </form>
 
-        {/* Футер */}
         <div className="px-10 pb-12 text-center text-purple-300/90 text-lg">
           Уже есть аккаунт?{' '}
           <a href="/login" className="text-amber-300 hover:text-amber-200 font-bold transition-colors">
@@ -269,20 +276,16 @@ function App() {
         </div>
       </div>
 
-      {/* Анимация */}
       <style jsx global>{`
         @keyframes fadeInUp {
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          to { opacity: 1; transform: translateY(0); }
         }
         .animate-fade-in-up {
           animation: fadeInUp 0.9s ease-out forwards;
         }
       `}</style>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

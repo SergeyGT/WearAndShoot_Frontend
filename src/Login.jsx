@@ -1,60 +1,80 @@
 // src/Login.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
-  const [formData, setFormData] = useState({
-    usernameOrEmail: '',
-    password: '',
-  })
+  const navigate = useNavigate();
 
-  const [status, setStatus] = useState({ type: '', message: '' })
-  const [loading, setLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    username: '',
+    password: '',
+  });
+
+  const [status, setStatus] = useState({ type: '', message: '' });
+  const [loading, setLoading] = useState(false);
+
+  // Проверяем, авторизован ли пользователь уже
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('http://localhost:8080/auth/me', {
+          credentials: 'include',
+        });
+
+        if (res.ok) {
+          navigate('/cloth', { replace: true });
+        }
+      } catch {
+        // остаёмся на странице логина
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
 
   const handleChange = (e) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
-  }
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setStatus({ type: '', message: '' })
-    setLoading(true)
+    e.preventDefault();
+    setStatus({ type: '', message: '' });
+    setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/login', {  // ← предполагаемый endpoint логина
+      const res = await fetch('http://localhost:8080/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           username: formData.username,
           password: formData.password,
         }),
-      })
+      });
 
-      const data = await res.json()
+      const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || 'Неверный логин или пароль')
+        throw new Error(data.message || 'Неверный логин или пароль');
       }
 
       setStatus({
         type: 'success',
         message: 'Вход выполнен! Перенаправляем...',
-      })
+      });
 
-      // Здесь должен быть редирект после успешного логина
-      // (например, сохранить токен и перейти на /cloth/)
       setTimeout(() => {
-        window.location.href = '/cloth/'
-      }, 1500)
-
+        navigate('/cloth', { replace: true });
+      }, 1200);
     } catch (err) {
       setStatus({
         type: 'error',
         message: err.message || 'Ошибка входа',
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-amber-400 via-yellow-300 to-amber-500 p-4 sm:p-6">
@@ -69,7 +89,6 @@ export default function Login() {
         animate-fade-in-up opacity-0 translate-y-8
       " style={{ animationDelay: '0.3s', animationDuration: '0.9s' }}>
         
-        {/* Заголовок — другой цвет и текст */}
         <div className="px-10 pt-14 pb-10 text-center">
           <h1 className="
             text-5xl sm:text-6xl font-black 
@@ -84,9 +103,7 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Форма логина — меньше полей, другой порядок */}
         <form onSubmit={handleSubmit} className="px-8 sm:px-12 pb-14 space-y-7">
-          {/* Логин / Email */}
           <div>
             <label className="block text-base sm:text-lg font-semibold text-purple-200 mb-3">
               Никнейм или Email
@@ -115,7 +132,6 @@ export default function Login() {
             />
           </div>
 
-          {/* Пароль */}
           <div>
             <label className="block text-base sm:text-lg font-semibold text-purple-200 mb-3">
               Пароль
@@ -144,7 +160,6 @@ export default function Login() {
             />
           </div>
 
-          {/* Кнопка входа */}
           <button
             type="submit"
             disabled={loading}
@@ -160,19 +175,16 @@ export default function Login() {
             {loading ? 'Входим...' : 'Войти'}
           </button>
 
-          {/* Сообщение */}
           {status.message && (
             <div className={`mt-6 p-6 rounded-2xl text-center font-medium text-lg border-2 shadow-lg ${
-              status.type === 'success'
-                ? 'bg-green-900/70 border-green-600 text-green-100'
-                : 'bg-red-900/70 border-red-600 text-red-100'
+              status.type === 'success' ? 'bg-green-900/70 border-green-600 text-green-100' :
+                                          'bg-red-900/70 border-red-600 text-red-100'
             }`}>
               {status.message}
             </div>
           )}
         </form>
 
-        {/* Футер */}
         <div className="px-10 pb-12 text-center text-purple-300/90 text-lg">
           Нет аккаунта?{' '}
           <a href="/register" className="text-amber-300 hover:text-amber-200 font-bold transition-colors">
@@ -181,18 +193,14 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Анимация */}
       <style jsx global>{`
         @keyframes fadeInUp {
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          to { opacity: 1; transform: translateY(0); }
         }
         .animate-fade-in-up {
           animation: fadeInUp 0.9s ease-out forwards;
         }
       `}</style>
     </div>
-  )
+  );
 }
