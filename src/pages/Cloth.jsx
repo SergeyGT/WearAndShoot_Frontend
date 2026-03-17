@@ -38,6 +38,11 @@ export default function Cloth() {
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
 
+  // Погода
+  const [weather, setWeather] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState(null);
+
   // Модалка
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
@@ -50,6 +55,10 @@ export default function Cloth() {
   });
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
+
+  // Кэш погоды (15 минут)
+  const WEATHER_CACHE_KEY = 'weather_cache';
+  const CACHE_TTL = 15 * 60 * 1000; // 15 минут в миллисекундах
 
   // Функция для выхода
   const handleLogout = async () => {
@@ -105,6 +114,91 @@ export default function Cloth() {
 
     fetchMe();
   }, [navigate]);
+
+  // Погода по геолокации + кэш
+  const fetchWeatherByCoords = async (lat, lon) => {
+    setWeatherLoading(true);
+    setWeatherError(null);
+
+    const cache = localStorage.getItem(WEATHER_CACHE_KEY);
+    if (cache) {
+      const { data, timestamp } = JSON.parse(cache);
+      if (Date.now() - timestamp < CACHE_TTL) {
+        setWeather(data);
+        setWeatherLoading(false);
+        return;
+      }
+    }
+
+    try {
+      const query = `${lat},${lon}`;
+      const res = await fetch(`${API_BASE}/weather/current?q=${encodeURIComponent(query)}`, {
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          navigate('/login', { replace: true });
+          return;
+        }
+        throw new Error(`Ошибка: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setWeather(data);
+
+      // Сохраняем в кэш
+      localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({
+        data,
+        timestamp: Date.now(),
+      }));
+    } catch (err) {
+      console.error('Ошибка погоды:', err);
+      setWeatherError(err.message || 'Не удалось загрузить погоду');
+    } finally {
+      setWeatherLoading(false);
+    }
+  };
+
+  const loadWeather = () => {
+    if (!navigator.geolocation) {
+      setWeatherError('Геолокация не поддерживается вашим браузером');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        fetchWeatherByCoords(latitude, longitude);
+      },
+      (err) => {
+        let msg = 'Не удалось определить местоположение';
+        if (err.code === 1) msg = 'Доступ к геолокации запрещён';
+        if (err.code === 2) msg = 'Местоположение недоступно';
+        if (err.code === 3) msg = 'Запрос геолокации превысил время';
+        setWeatherError(msg);
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
+  };
+
+  // Автозагрузка погоды после авторизации
+  useEffect(() => {
+    if (userId) {
+      loadWeather();
+    }
+  }, [userId]);
+
+  // Функция для получения градиента в зависимости от температуры
+  const getWeatherGradient = () => {
+    if (!weather) return 'from-purple-900/50 to-indigo-900/50';
+    const temp = weather.current.temp_c;
+    if (temp < -10) return 'from-blue-900/50 to-cyan-900/50';
+    if (temp < 0) return 'from-cyan-900/50 to-blue-900/50';
+    if (temp < 10) return 'from-indigo-900/50 to-purple-900/50';
+    if (temp < 20) return 'from-purple-900/50 to-pink-900/50';
+    return 'from-orange-900/50 to-red-900/50';
+  };
 
   // Функция для загрузки изображения карточки
   const fetchCardImage = async (cardId) => {
@@ -402,6 +496,55 @@ export default function Cloth() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Блок погоды */}
+        <div className={`mb-10 p-6 bg-gradient-to-br ${getWeatherGradient()} rounded-3xl border border-white/20 backdrop-blur-lg shadow-2xl`}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-black text-white drop-shadow-md flex items-center gap-2">
+              <span>🌤️</span> Погода сейчас
+            </h2>
+            <button
+              onClick={loadWeather}
+              disabled={weatherLoading}
+              className={`
+                px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-md
+                ${weatherLoading
+                  ? 'bg-white/20 cursor-not-allowed text-white/70'
+                  : 'bg-white/30 hover:bg-white/40 text-white'}
+              `}
+            >
+              {weatherLoading ? '🔄' : '🔄 Обновить'}
+            </button>
+          </div>
+
+          {weatherError ? (
+            <p className="text-white/80 text-center font-medium">{weatherError}</p>
+          ) : weather ? (
+            <div className="flex items-center gap-6">
+              <img
+                src={`https:${weather.current.condition.icon}`}
+                alt={weather.current.condition.text}
+                className="w-20 h-20 drop-shadow-lg"
+              />
+              <div className="flex-1">
+                <div className="flex items-baseline gap-3">
+                  <p className="text-5xl font-extrabold text-white drop-shadow-lg">
+                    {Math.round(weather.current.temp_c)}°
+                  </p>
+                  <p className="text-xl text-white/90 capitalize">
+                    {weather.current.condition.text}
+                  </p>
+                </div>
+                <p className="text-white/80 mt-1">
+                  Ощущается: {Math.round(weather.current.feelslike_c)}° • 
+                  {weather.location.name}, {weather.location.country}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-white/80 text-center italic">Загрузка погоды...</p>
+          )}
+        </div>
+
         <div className="flex justify-between items-center mb-8">
           <div className="text-center flex-1">
             <h1 className="text-4xl sm:text-5xl font-black bg-gradient-to-r from-purple-300 via-purple-200 to-purple-300 bg-clip-text text-transparent drop-shadow-lg tracking-tight">
