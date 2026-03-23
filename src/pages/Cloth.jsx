@@ -4,9 +4,9 @@ import { useNavigate } from 'react-router-dom';
 
 const API_BASE = 'http://localhost:8080';
 
-// Константы для Enum - ОБНОВЛЕННЫЕ категории и ДОБАВЛЕННЫЙ стиль
+// Константы для Enum
 const CATEGORIES = ['HEAD', 'TOP_BASE', 'TOP_MID', 'TOP_OUTER', 'BOTTOM', 'SHOES', 'ACCESSORY'];
-const STYLES = ['BUSINESS', 'CASUAL', 'SPORT'];  // ДОБАВЛЕНО
+const STYLES = ['BUSINESS', 'CASUAL', 'SPORT'];
 const SEASONS = ['SUMMER', 'AUTUMN', 'WINTER', 'SPRING'];
 
 // Палитра цветов
@@ -44,13 +44,23 @@ export default function Cloth() {
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState(null);
 
+  // Генерация образов
+  const [generatedOutfits, setGeneratedOutfits] = useState([]);
+  const [isOutfitModalOpen, setIsOutfitModalOpen] = useState(false);
+  const [outfitLoading, setOutfitLoading] = useState(false);
+  const [outfitError, setOutfitError] = useState(null);
+  
+  // Модалка выбора стиля для генерации
+  const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
+  const [selectedStyle, setSelectedStyle] = useState('CASUAL');
+
   // Модалка
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
   const [form, setForm] = useState({
     clothName: '',
-    category: 'TOP_BASE',  // ИЗМЕНЕНО с 'UP' на 'TOP_BASE'
-    style: 'CASUAL',       // ДОБАВЛЕНО
+    category: 'TOP_BASE',
+    style: 'CASUAL',
     color: '',
     season: 'SUMMER',
     warmthLevel: 3,
@@ -61,6 +71,51 @@ export default function Cloth() {
   // Кэш погоды
   const WEATHER_CACHE_KEY = 'weather_cache';
   const CACHE_TTL = 15 * 60 * 1000;
+
+  // Функция для открытия модалки выбора стиля
+  const openStyleModal = () => {
+    if (cards.length < 3) {
+      setOutfitError('Недостаточно вещей для генерации образов (нужно минимум 3)');
+      return;
+    }
+    setIsStyleModalOpen(true);
+  };
+
+  // Генерация образов с выбранным стилем
+  const generateOutfits = async () => {
+    setOutfitLoading(true);
+    setOutfitError(null);
+    setIsStyleModalOpen(false);
+
+    try {
+      const res = await fetch(`${API_BASE}/cloth/generate-outfits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          userId: userId,
+          style: selectedStyle,
+          count: 3
+        }),
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          navigate('/login');
+          return;
+        }
+        throw new Error('Ошибка генерации');
+      }
+
+      const outfits = await res.json();
+      setGeneratedOutfits(outfits);
+      setIsOutfitModalOpen(true);
+    } catch (err) {
+      setOutfitError('Не удалось сгенерировать образы: ' + err.message);
+    } finally {
+      setOutfitLoading(false);
+    }
+  };
 
   // Выход
   const handleLogout = async () => {
@@ -194,39 +249,6 @@ export default function Cloth() {
     return 'from-orange-900/50 to-red-900/50';
   };
 
-  // Загрузка изображения карточки
-  const fetchCardImage = async (cardId) => {
-    if (loadingImages[cardId]) return;
-    
-    try {
-      setLoadingImages(prev => ({ ...prev, [cardId]: true }));
-      
-      const res = await fetch(`${API_BASE}/cloth/image/${cardId}`, {
-        credentials: 'include',
-      });
-      
-      if (res.ok) {
-        const blob = await res.blob();
-        if (blob.size > 0) {
-          if (imageUrls[cardId] && imageUrls[cardId].startsWith('blob:')) {
-            URL.revokeObjectURL(imageUrls[cardId]);
-          }
-          const url = URL.createObjectURL(blob);
-          setImageUrls(prev => ({ ...prev, [cardId]: url }));
-        } else {
-          setImageUrls(prev => ({ ...prev, [cardId]: null }));
-        }
-      } else {
-        setImageUrls(prev => ({ ...prev, [cardId]: null }));
-      }
-    } catch (err) {
-      console.error(`Ошибка загрузки изображения для карточки ${cardId}:`, err);
-      setImageUrls(prev => ({ ...prev, [cardId]: null }));
-    } finally {
-      setLoadingImages(prev => ({ ...prev, [cardId]: false }));
-    }
-  };
-
   // Загрузка карточек
   useEffect(() => {
     if (!userId) return;
@@ -313,8 +335,8 @@ export default function Cloth() {
     setEditingCard(null);
     setForm({ 
       clothName: '', 
-      category: 'TOP_BASE',      // ИЗМЕНЕНО
-      style: 'CASUAL',           // ДОБАВЛЕНО
+      category: 'TOP_BASE', 
+      style: 'CASUAL',
       color: '', 
       season: 'SUMMER', 
       warmthLevel: 3 
@@ -328,8 +350,8 @@ export default function Cloth() {
     setEditingCard(card);
     setForm({
       clothName: card.clothName || '',
-      category: card.category || 'TOP_BASE',  // ИЗМЕНЕНО
-      style: card.style || 'CASUAL',          // ДОБАВЛЕНО
+      category: card.category || 'TOP_BASE',
+      style: card.style || 'CASUAL',
       color: card.color || '',
       season: card.season || 'SUMMER',
       warmthLevel: card.warmthLevel || 3,
@@ -351,7 +373,7 @@ export default function Cloth() {
       userId,
       clothName: form.clothName.trim(),
       category: form.category,
-      style: form.style,           // ДОБАВЛЕНО
+      style: form.style,
       color: form.color,
       season: form.season,
       warmthLevel: Number(form.warmthLevel),
@@ -448,7 +470,6 @@ export default function Cloth() {
     setShowColorPicker(false);
   };
 
-  // ОБНОВЛЕННЫЕ функции для отображения
   const getCategoryLabel = (category) => {
     const labels = { 
       'HEAD': 'Головной убор',
@@ -462,7 +483,6 @@ export default function Cloth() {
     return labels[category] || category;
   };
 
-  // ДОБАВЛЕНА функция для стиля
   const getStyleLabel = (style) => {
     const labels = { 
       'BUSINESS': 'Деловой', 
@@ -508,13 +528,22 @@ export default function Cloth() {
                 </span>
               )}
             </div>
-            <button
-              onClick={handleLogout}
-              disabled={logoutLoading}
-              className="w-full sm:w-auto px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {logoutLoading ? 'Выход...' : 'Выйти'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={openStyleModal}
+                disabled={outfitLoading || cards.length < 3}
+                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {outfitLoading ? 'Генерация...' : '✨ Сгенерировать образ'}
+              </button>
+              <button
+                onClick={handleLogout}
+                disabled={logoutLoading}
+                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {logoutLoading ? 'Выход...' : 'Выйти'}
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -639,7 +668,6 @@ export default function Cloth() {
                       <span>{getCategoryLabel(card.category)}</span>
                     </p>
                     
-                    {/* ДОБАВЛЕНО отображение стиля */}
                     <p className="text-purple-300/80 flex flex-wrap items-center gap-1">
                       <span className="font-semibold">Стиль:</span> 
                       <span>{getStyleLabel(card.style)}</span>
@@ -683,7 +711,7 @@ export default function Cloth() {
         )}
       </main>
 
-      {/* Модалка */}
+      {/* Модалка создания/редактирования */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
           <div className="bg-gradient-to-b from-purple-950 to-indigo-950 rounded-xl max-w-md w-full p-5 sm:p-6 shadow-2xl border-4 border-purple-700/60 my-8">
@@ -727,7 +755,6 @@ export default function Cloth() {
                 </select>
               </div>
 
-              {/* ДОБАВЛЕН select для стиля */}
               <div>
                 <label className="block text-purple-200 text-sm font-semibold mb-1">Стиль</label>
                 <select
@@ -836,6 +863,99 @@ export default function Cloth() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка выбора стиля для генерации */}
+      {isStyleModalOpen && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-b from-purple-950 to-indigo-950 rounded-xl max-w-md w-full p-6 shadow-2xl border-4 border-purple-700/60">
+            <h2 className="text-2xl font-bold text-purple-200 mb-4 text-center">
+              Выберите стиль образа
+            </h2>
+            
+            <div className="space-y-3 mb-6">
+              {STYLES.map((style) => (
+                <button
+                  key={style}
+                  onClick={() => setSelectedStyle(style)}
+                  className={`w-full py-3 px-4 rounded-xl font-semibold text-lg transition-all ${
+                    selectedStyle === style
+                      ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-purple-950 shadow-lg scale-105'
+                      : 'bg-purple-900/50 text-purple-200 hover:bg-purple-800/70 border-2 border-purple-700'
+                  }`}
+                >
+                  {getStyleLabel(style)}
+                </button>
+              ))}
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={generateOutfits}
+                className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 py-3 rounded-xl font-bold text-white transition-all"
+              >
+                Сгенерировать
+              </button>
+              <button
+                onClick={() => setIsStyleModalOpen(false)}
+                className="flex-1 bg-purple-900/50 hover:bg-purple-800/50 py-3 rounded-xl font-bold text-white border-2 border-purple-700 transition-all"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка с результатами генерации */}
+      {isOutfitModalOpen && generatedOutfits.length > 0 && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-gradient-to-b from-purple-950 to-indigo-950 rounded-xl max-w-4xl w-full p-6 shadow-2xl border-4 border-purple-700/60 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-purple-200">
+                Сгенерированные образы (Стиль: {getStyleLabel(selectedStyle)})
+              </h2>
+              <button
+                onClick={() => setIsOutfitModalOpen(false)}
+                className="text-purple-400 hover:text-purple-200 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {outfitError && (
+              <div className="bg-red-900/70 border border-red-600 rounded-lg p-4 mb-4 text-red-100">
+                {outfitError}
+              </div>
+            )}
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {generatedOutfits.map((outfit) => (
+                <div key={outfit.id} className="bg-purple-900/50 rounded-lg p-4 border border-purple-700">
+                  <h3 className="text-lg font-bold text-purple-200 mb-2">{outfit.outfitName}</h3>
+                  <p className="text-purple-300 text-sm">Стиль: {getStyleLabel(outfit.style)}</p>
+                  {outfit.temperatureC && (
+                    <p className="text-purple-300 text-sm">Температура: {outfit.temperatureC}°C</p>
+                  )}
+                  {outfit.weatherCondition && (
+                    <p className="text-purple-300 text-sm">Погода: {outfit.weatherCondition}</p>
+                  )}
+                  <div className="mt-3">
+                    <p className="text-purple-200 font-semibold text-sm mb-2">Предметы:</p>
+                    <div className="space-y-1">
+                      {outfit.items?.map((item) => (
+                        <div key={item.id} className="text-purple-300 text-xs flex items-center gap-2">
+                          <span>{item.clothName}</span>
+                          <span className="text-purple-400">({getCategoryLabel(item.category)})</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
