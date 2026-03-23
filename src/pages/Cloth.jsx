@@ -4,11 +4,12 @@ import { useNavigate } from 'react-router-dom';
 
 const API_BASE = 'http://localhost:8080';
 
-// Константы для Enum
-const CATEGORIES = ['UP', 'DOWN', 'SHOES'];
-const SEASONS = ['SUMMER', 'AUTUMN', 'SPRING', 'WINTER'];
+// Константы для Enum - ОБНОВЛЕННЫЕ категории и ДОБАВЛЕННЫЙ стиль
+const CATEGORIES = ['HEAD', 'TOP_BASE', 'TOP_MID', 'TOP_OUTER', 'BOTTOM', 'SHOES', 'ACCESSORY'];
+const STYLES = ['BUSINESS', 'CASUAL', 'SPORT'];  // ДОБАВЛЕНО
+const SEASONS = ['SUMMER', 'AUTUMN', 'WINTER', 'SPRING'];
 
-// Палитра цветов (название цвета и его hex-код)
+// Палитра цветов
 const COLOR_PALETTE = [
   { name: 'Красный', value: '#FF0000' },
   { name: 'Синий', value: '#0000FF' },
@@ -48,7 +49,8 @@ export default function Cloth() {
   const [editingCard, setEditingCard] = useState(null);
   const [form, setForm] = useState({
     clothName: '',
-    category: 'UP',
+    category: 'TOP_BASE',  // ИЗМЕНЕНО с 'UP' на 'TOP_BASE'
+    style: 'CASUAL',       // ДОБАВЛЕНО
     color: '',
     season: 'SUMMER',
     warmthLevel: 3,
@@ -56,11 +58,11 @@ export default function Cloth() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
 
-  // Кэш погоды (15 минут)
+  // Кэш погоды
   const WEATHER_CACHE_KEY = 'weather_cache';
-  const CACHE_TTL = 15 * 60 * 1000; // 15 минут в миллисекундах
+  const CACHE_TTL = 15 * 60 * 1000;
 
-  // Функция для выхода
+  // Выход
   const handleLogout = async () => {
     try {
       setLogoutLoading(true);
@@ -70,13 +72,11 @@ export default function Cloth() {
       });
 
       if (res.ok) {
-        // Очищаем все URL изображений перед выходом
         Object.values(imageUrls).forEach(url => {
           if (url && url.startsWith('blob:')) {
             URL.revokeObjectURL(url);
           }
         });
-        
         navigate('/login', { replace: true });
       } else {
         alert('Ошибка при выходе');
@@ -89,7 +89,7 @@ export default function Cloth() {
     }
   };
 
-  // Получаем текущего пользователя
+  // Получение пользователя
   useEffect(() => {
     const fetchMe = async () => {
       try {
@@ -98,7 +98,6 @@ export default function Cloth() {
         });
 
         if (!res.ok) {
-          console.warn('Не авторизован → редирект на логин');
           navigate('/login', { replace: true });
           return;
         }
@@ -115,7 +114,7 @@ export default function Cloth() {
     fetchMe();
   }, [navigate]);
 
-  // Погода по геолокации + кэш
+  // Погода
   const fetchWeatherByCoords = async (lat, lon) => {
     setWeatherLoading(true);
     setWeatherError(null);
@@ -146,8 +145,6 @@ export default function Cloth() {
 
       const data = await res.json();
       setWeather(data);
-
-      // Сохраняем в кэш
       localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({
         data,
         timestamp: Date.now(),
@@ -162,34 +159,31 @@ export default function Cloth() {
 
   const loadWeather = () => {
     if (!navigator.geolocation) {
-      setWeatherError('Геолокация не поддерживается вашим браузером');
+      setWeatherError('Геолокация не поддерживается');
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
-        fetchWeatherByCoords(latitude, longitude);
+        fetchWeatherByCoords(position.coords.latitude, position.coords.longitude);
       },
       (err) => {
         let msg = 'Не удалось определить местоположение';
         if (err.code === 1) msg = 'Доступ к геолокации запрещён';
         if (err.code === 2) msg = 'Местоположение недоступно';
-        if (err.code === 3) msg = 'Запрос геолокации превысил время';
+        if (err.code === 3) msg = 'Время запроса истекло';
         setWeatherError(msg);
-      },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      }
     );
   };
 
-  // Автозагрузка погоды после авторизации
   useEffect(() => {
     if (userId) {
       loadWeather();
     }
   }, [userId]);
 
-  // Функция для получения градиента в зависимости от температуры
+  // Градиент для погоды
   const getWeatherGradient = () => {
     if (!weather) return 'from-purple-900/50 to-indigo-900/50';
     const temp = weather.current.temp_c;
@@ -200,7 +194,7 @@ export default function Cloth() {
     return 'from-orange-900/50 to-red-900/50';
   };
 
-  // Функция для загрузки изображения карточки
+  // Загрузка изображения карточки
   const fetchCardImage = async (cardId) => {
     if (loadingImages[cardId]) return;
     
@@ -213,11 +207,16 @@ export default function Cloth() {
       
       if (res.ok) {
         const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        setImageUrls(prev => ({ ...prev, [cardId]: url }));
-        console.log(`Image loaded for card ${cardId}`);
+        if (blob.size > 0) {
+          if (imageUrls[cardId] && imageUrls[cardId].startsWith('blob:')) {
+            URL.revokeObjectURL(imageUrls[cardId]);
+          }
+          const url = URL.createObjectURL(blob);
+          setImageUrls(prev => ({ ...prev, [cardId]: url }));
+        } else {
+          setImageUrls(prev => ({ ...prev, [cardId]: null }));
+        }
       } else {
-        console.log(`No image for card ${cardId}, status: ${res.status}`);
         setImageUrls(prev => ({ ...prev, [cardId]: null }));
       }
     } catch (err) {
@@ -228,7 +227,7 @@ export default function Cloth() {
     }
   };
 
-  // Загружаем карточки
+  // Загрузка карточек
   useEffect(() => {
     if (!userId) return;
 
@@ -251,13 +250,32 @@ export default function Cloth() {
         console.log('Загруженные карточки:', data);
         setCards(data || []);
         
-        // Загружаем изображения для каждой карточки
         if (data && data.length > 0) {
-          data.forEach(card => {
-            if (card.id) {
-              fetchCardImage(card.id);
+          Object.values(imageUrls).forEach(url => {
+            if (url && url.startsWith('blob:')) {
+              URL.revokeObjectURL(url);
             }
           });
+          
+          const newImageUrls = {};
+          await Promise.all(data.map(async (card) => {
+            if (card.id) {
+              try {
+                const imgRes = await fetch(`${API_BASE}/cloth/image/${card.id}`, {
+                  credentials: 'include',
+                });
+                if (imgRes.ok) {
+                  const blob = await imgRes.blob();
+                  if (blob.size > 0) {
+                    newImageUrls[card.id] = URL.createObjectURL(blob);
+                  }
+                }
+              } catch (err) {
+                console.error(`Ошибка загрузки изображения для карточки ${card.id}:`, err);
+              }
+            }
+          }));
+          setImageUrls(newImageUrls);
         }
       } catch (err) {
         console.error('Ошибка загрузки карточек:', err);
@@ -270,7 +288,7 @@ export default function Cloth() {
     fetchCards();
   }, [userId, navigate]);
 
-  // Предпросмотр изображения
+  // Предпросмотр
   useEffect(() => {
     if (selectedFile) {
       const url = URL.createObjectURL(selectedFile);
@@ -280,7 +298,7 @@ export default function Cloth() {
     setPreviewUrl('');
   }, [selectedFile]);
 
-  // Очищаем URL объектов при размонтировании
+  // Очистка URL при размонтировании
   useEffect(() => {
     return () => {
       Object.values(imageUrls).forEach(url => {
@@ -289,13 +307,14 @@ export default function Cloth() {
         }
       });
     };
-  }, [imageUrls]);
+  }, []);
 
   const openCreate = () => {
     setEditingCard(null);
     setForm({ 
       clothName: '', 
-      category: 'UP', 
+      category: 'TOP_BASE',      // ИЗМЕНЕНО
+      style: 'CASUAL',           // ДОБАВЛЕНО
       color: '', 
       season: 'SUMMER', 
       warmthLevel: 3 
@@ -309,7 +328,8 @@ export default function Cloth() {
     setEditingCard(card);
     setForm({
       clothName: card.clothName || '',
-      category: card.category || 'UP',
+      category: card.category || 'TOP_BASE',  // ИЗМЕНЕНО
+      style: card.style || 'CASUAL',          // ДОБАВЛЕНО
       color: card.color || '',
       season: card.season || 'SUMMER',
       warmthLevel: card.warmthLevel || 3,
@@ -323,7 +343,7 @@ export default function Cloth() {
     e.preventDefault();
 
     if (!userId) {
-      alert('Не удалось определить пользователя. Попробуйте войти заново.');
+      alert('Не удалось определить пользователя');
       return;
     }
 
@@ -331,7 +351,8 @@ export default function Cloth() {
       userId,
       clothName: form.clothName.trim(),
       category: form.category,
-      color: form.color, // Сохраняем как строку (название цвета или hex)
+      style: form.style,           // ДОБАВЛЕНО
+      color: form.color,
       season: form.season,
       warmthLevel: Number(form.warmthLevel),
     };
@@ -386,17 +407,15 @@ export default function Cloth() {
         const updatedCards = await cardsRes.json();
         setCards(updatedCards);
         
-        // Очищаем старые URL изображений
         Object.values(imageUrls).forEach(url => {
           if (url && url.startsWith('blob:')) {
             URL.revokeObjectURL(url);
           }
         });
         
-        // Загружаем новые изображения
         const newImageUrls = {};
         if (updatedCards && updatedCards.length > 0) {
-          for (const card of updatedCards) {
+          await Promise.all(updatedCards.map(async (card) => {
             if (card.id) {
               try {
                 const imgRes = await fetch(`${API_BASE}/cloth/image/${card.id}`, {
@@ -404,13 +423,15 @@ export default function Cloth() {
                 });
                 if (imgRes.ok) {
                   const blob = await imgRes.blob();
-                  newImageUrls[card.id] = URL.createObjectURL(blob);
+                  if (blob.size > 0) {
+                    newImageUrls[card.id] = URL.createObjectURL(blob);
+                  }
                 }
               } catch (err) {
                 console.error(`Ошибка загрузки изображения для карточки ${card.id}:`, err);
               }
             }
-          }
+          }));
         }
         setImageUrls(newImageUrls);
       }
@@ -427,27 +448,35 @@ export default function Cloth() {
     setShowColorPicker(false);
   };
 
-  // Функция для перевода Enum в читаемый текст
+  // ОБНОВЛЕННЫЕ функции для отображения
   const getCategoryLabel = (category) => {
-    const labels = {
-      'UP': 'Верх',
-      'DOWN': 'Низ',
-      'SHOES': 'Обувь'
+    const labels = { 
+      'HEAD': 'Головной убор',
+      'TOP_BASE': 'База (нижний слой)', 
+      'TOP_MID': 'Средний слой',
+      'TOP_OUTER': 'Верхняя одежда',
+      'BOTTOM': 'Низ',
+      'SHOES': 'Обувь',
+      'ACCESSORY': 'Аксессуар'
     };
     return labels[category] || category;
   };
 
-  const getSeasonLabel = (season) => {
-    const labels = {
-      'SUMMER': 'Лето',
-      'AUTUMN': 'Осень',
-      'SPRING': 'Весна',
-      'WINTER': 'Зима'
+  // ДОБАВЛЕНА функция для стиля
+  const getStyleLabel = (style) => {
+    const labels = { 
+      'BUSINESS': 'Деловой', 
+      'CASUAL': 'Повседневный', 
+      'SPORT': 'Спортивный' 
     };
+    return labels[style] || style;
+  };
+
+  const getSeasonLabel = (season) => {
+    const labels = { 'SUMMER': 'Лето', 'AUTUMN': 'Осень', 'WINTER': 'Зима', 'SPRING': 'Весна' };
     return labels[season] || season;
   };
 
-  // Функция для получения цвета фона из названия цвета
   const getColorFromName = (colorName) => {
     const color = COLOR_PALETTE.find(c => c.name === colorName);
     return color ? color.value : '#CCCCCC';
@@ -455,24 +484,26 @@ export default function Cloth() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-2xl text-purple-200">
-        Загрузка...
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-400 via-yellow-300 to-amber-500">
+        <div className="bg-purple-950/80 backdrop-blur-xl px-8 py-6 rounded-2xl border-4 border-purple-700">
+          <p className="text-2xl text-purple-200 animate-pulse">Загрузка...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-amber-400 via-yellow-300 to-amber-500">
-      {/* Хедер с логаутом */}
-      <div className="bg-purple-950/80 backdrop-blur-sm border-b border-purple-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <h2 className="text-2xl font-bold text-purple-200">
+      {/* Хедер */}
+      <header className="sticky top-0 z-40 bg-purple-950/90 backdrop-blur-md border-b border-purple-700 shadow-xl">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-0">
+            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left">
+              <h1 className="text-xl sm:text-2xl font-bold text-purple-200 whitespace-nowrap">
                 Wear & Shoot
-              </h2>
+              </h1>
               {userName && (
-                <span className="text-purple-300">
+                <span className="text-purple-300 text-sm sm:text-base bg-purple-900/50 px-3 py-1 rounded-full">
                   Привет, {userName}!
                 </span>
               )}
@@ -480,111 +511,99 @@ export default function Cloth() {
             <button
               onClick={handleLogout}
               disabled={logoutLoading}
-              className={`
-                px-6 py-2 rounded-xl font-semibold text-white
-                transition-all duration-300
-                ${logoutLoading 
-                  ? 'bg-red-800/50 cursor-not-allowed' 
-                  : 'bg-red-600 hover:bg-red-700 hover:scale-105'
-                }
-              `}
+              className="w-full sm:w-auto px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {logoutLoading ? 'Выход...' : 'Выйти'}
             </button>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Блок погоды */}
-        <div className={`mb-10 p-6 bg-gradient-to-br ${getWeatherGradient()} rounded-3xl border border-white/20 backdrop-blur-lg shadow-2xl`}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-black text-white drop-shadow-md flex items-center gap-2">
+        <div className={`mb-6 sm:mb-8 p-4 sm:p-6 bg-gradient-to-br ${getWeatherGradient()} rounded-2xl border border-white/20 backdrop-blur-lg shadow-2xl`}>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0 mb-3 sm:mb-4">
+            <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
               <span>🌤️</span> Погода сейчас
             </h2>
             <button
               onClick={loadWeather}
               disabled={weatherLoading}
-              className={`
-                px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-md
-                ${weatherLoading
-                  ? 'bg-white/20 cursor-not-allowed text-white/70'
-                  : 'bg-white/30 hover:bg-white/40 text-white'}
-              `}
+              className="w-full sm:w-auto px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {weatherLoading ? '🔄' : '🔄 Обновить'}
+              <span>{weatherLoading ? '⏳' : '🔄'}</span>
+              <span className="sm:hidden">{weatherLoading ? 'Загрузка...' : 'Обновить'}</span>
+              <span className="hidden sm:inline">{weatherLoading ? 'Обновление...' : 'Обновить'}</span>
             </button>
           </div>
 
           {weatherError ? (
-            <p className="text-white/80 text-center font-medium">{weatherError}</p>
+            <p className="text-white/80 text-center text-sm sm:text-base">{weatherError}</p>
           ) : weather ? (
-            <div className="flex items-center gap-6">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
               <img
                 src={`https:${weather.current.condition.icon}`}
                 alt={weather.current.condition.text}
-                className="w-20 h-20 drop-shadow-lg"
+                className="w-16 h-16 sm:w-20 sm:h-20 drop-shadow-lg"
               />
-              <div className="flex-1">
-                <div className="flex items-baseline gap-3">
-                  <p className="text-5xl font-extrabold text-white drop-shadow-lg">
+              <div className="flex-1 text-center sm:text-left">
+                <div className="flex flex-col sm:flex-row items-center sm:items-baseline gap-2 sm:gap-3">
+                  <p className="text-4xl sm:text-5xl font-extrabold text-white">
                     {Math.round(weather.current.temp_c)}°
                   </p>
-                  <p className="text-xl text-white/90 capitalize">
+                  <p className="text-lg sm:text-xl text-white/90 capitalize">
                     {weather.current.condition.text}
                   </p>
                 </div>
-                <p className="text-white/80 mt-1">
+                <p className="text-sm sm:text-base text-white/80 mt-1">
                   Ощущается: {Math.round(weather.current.feelslike_c)}° • 
                   {weather.location.name}, {weather.location.country}
                 </p>
               </div>
             </div>
           ) : (
-            <p className="text-white/80 text-center italic">Загрузка погоды...</p>
+            <p className="text-white/80 text-center italic text-sm sm:text-base">Загрузка погоды...</p>
           )}
         </div>
 
-        <div className="flex justify-between items-center mb-8">
-          <div className="text-center flex-1">
-            <h1 className="text-4xl sm:text-5xl font-black bg-gradient-to-r from-purple-300 via-purple-200 to-purple-300 bg-clip-text text-transparent drop-shadow-lg tracking-tight">
+        {/* Заголовок и кнопка */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 sm:mb-8">
+          <div className="text-center sm:text-left">
+            <h2 className="text-3xl sm:text-4xl font-black text-purple-950 drop-shadow-lg">
               Мой гардероб
-            </h1>
-            <p className="mt-2 text-purple-900/90 text-lg sm:text-xl font-medium">
+            </h2>
+            <p className="text-purple-900 text-sm sm:text-base mt-1">
               {cards.length} {cards.length === 1 ? 'вещь' : cards.length >= 2 && cards.length <= 4 ? 'вещи' : 'вещей'}
             </p>
           </div>
           <button
             onClick={openCreate}
-            className="bg-purple-700 hover:bg-purple-800 text-white px-6 py-3 rounded-xl font-bold text-lg shadow-xl transition-all hover:scale-105"
+            className="w-full sm:w-auto px-6 py-3 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl shadow-xl transition-all hover:scale-105 flex items-center justify-center gap-2"
           >
-            + Добавить вещь
+            <span>➕</span> Добавить вещь
           </button>
         </div>
 
         {/* Сетка карточек */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {cards.length === 0 ? (
-            <div className="col-span-full text-center py-16">
-              <p className="text-purple-900/70 text-2xl mb-4">
-                У тебя пока нет вещей 😢
-              </p>
-              <p className="text-purple-800/60 text-lg">
-                Нажми кнопку "Добавить вещь" чтобы создать первую карточку!
-              </p>
-            </div>
-          ) : (
-            cards.map((card) => (
+        {cards.length === 0 ? (
+          <div className="text-center py-12 bg-white/30 backdrop-blur-sm rounded-2xl">
+            <p className="text-2xl text-purple-900 mb-2">У тебя пока нет вещей 😢</p>
+            <p className="text-purple-800">Нажми кнопку "Добавить вещь" чтобы создать первую карточку!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+            {cards.map((card) => (
               <div
                 key={card.id}
-                className="bg-gradient-to-b from-purple-950 to-indigo-950 backdrop-blur-xl rounded-2xl border-4 border-purple-700/60 shadow-2xl shadow-purple-900/70 overflow-hidden transition-all duration-300 hover:scale-[1.02] flex flex-col h-[450px]"
+                className="bg-gradient-to-b from-purple-950 to-indigo-950 backdrop-blur-xl rounded-xl border-4 border-purple-700/60 shadow-2xl overflow-hidden hover:scale-[1.02] transition-all duration-300 flex flex-col"
               >
-                <div className="h-48 bg-purple-900/50 relative overflow-hidden">
+                {/* Изображение */}
+                <div className="relative w-full pt-[75%] bg-purple-900/50">
                   {imageUrls[card.id] ? (
                     <img
                       src={imageUrls[card.id]}
                       alt={card.clothName}
-                      className="w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full object-cover"
                       onError={(e) => {
                         console.log(`Error loading image for card ${card.id}`);
                         e.target.onerror = null;
@@ -595,71 +614,86 @@ export default function Cloth() {
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-purple-400/50">
                       {loadingImages[card.id] ? (
                         <>
-                          <div className="w-12 h-12 border-4 border-purple-400 border-t-transparent rounded-full animate-spin mb-2"></div>
-                          <span className="text-sm">Загрузка...</span>
+                          <div className="w-10 h-10 border-4 border-purple-400 border-t-transparent rounded-full animate-spin mb-2"></div>
+                          <span className="text-xs">Загрузка...</span>
                         </>
                       ) : (
                         <>
-                          <span className="text-6xl mb-2">📸</span>
-                          <span className="text-sm">Нет фото</span>
+                          <span className="text-4xl mb-1">📸</span>
+                          <span className="text-xs">Нет фото</span>
                         </>
                       )}
                     </div>
                   )}
                 </div>
 
-                <div className="p-5 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="text-xl font-bold text-purple-200 mb-2 line-clamp-1">
-                      {card.clothName || 'Без названия'}
-                    </h3>
-                    <div className="space-y-1 text-sm">
-                      <p className="text-purple-300/80">
-                        <span className="font-semibold">Категория:</span> {getCategoryLabel(card.category)}
-                      </p>
-                      <p className="text-purple-300/80 flex items-center">
-                        <span className="font-semibold mr-1">Цвет:</span>
-                        {card.color && (
-                          <span 
-                            className="inline-block w-4 h-4 rounded-full mr-1" 
-                            style={{ backgroundColor: getColorFromName(card.color) }}
-                          ></span>
-                        )}
-                        {card.color || '—'}
-                      </p>
-                      <p className="text-purple-300/80">
-                        <span className="font-semibold">Сезон:</span> {getSeasonLabel(card.season)}
-                      </p>
-                      <p className="text-purple-300/80">
-                        <span className="font-semibold">Теплота:</span> {'❤️'.repeat(card.warmthLevel || 0)}{'🤍'.repeat(5 - (card.warmthLevel || 0))}
-                      </p>
-                    </div>
+                {/* Контент */}
+                <div className="p-4 flex-1 flex flex-col">
+                  <h3 className="text-lg font-bold text-purple-200 mb-2 line-clamp-1">
+                    {card.clothName || 'Без названия'}
+                  </h3>
+                  
+                  <div className="space-y-1.5 text-xs flex-1">
+                    <p className="text-purple-300/80 flex flex-wrap items-center gap-1">
+                      <span className="font-semibold">Категория:</span> 
+                      <span>{getCategoryLabel(card.category)}</span>
+                    </p>
+                    
+                    {/* ДОБАВЛЕНО отображение стиля */}
+                    <p className="text-purple-300/80 flex flex-wrap items-center gap-1">
+                      <span className="font-semibold">Стиль:</span> 
+                      <span>{getStyleLabel(card.style)}</span>
+                    </p>
+                    
+                    <p className="text-purple-300/80 flex flex-wrap items-center gap-1">
+                      <span className="font-semibold">Цвет:</span>
+                      {card.color && (
+                        <span 
+                          className="inline-block w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: getColorFromName(card.color) }}
+                        />
+                      )}
+                      <span className="truncate max-w-[100px]">{card.color || '—'}</span>
+                    </p>
+                    
+                    <p className="text-purple-300/80 flex flex-wrap items-center gap-1">
+                      <span className="font-semibold">Сезон:</span> 
+                      <span>{getSeasonLabel(card.season)}</span>
+                    </p>
+                    
+                    <p className="text-purple-300/80 flex flex-wrap items-center gap-1">
+                      <span className="font-semibold">Теплота:</span>
+                      <span className="flex">
+                        {'❤️'.repeat(card.warmthLevel || 0)}
+                        {'🤍'.repeat(5 - (card.warmthLevel || 0))}
+                      </span>
+                    </p>
                   </div>
 
                   <button
                     onClick={() => openEdit(card)}
-                    className="mt-4 bg-amber-400 hover:bg-amber-500 text-purple-950 font-bold py-2.5 px-4 rounded-xl transition-all hover:scale-105"
+                    className="mt-3 w-full bg-amber-400 hover:bg-amber-500 text-purple-950 font-bold py-2 px-3 rounded-lg text-sm transition-all hover:scale-105"
                   >
                     Редактировать
                   </button>
                 </div>
               </div>
-            ))
-          )}
-        </div>
-      </div>
+            ))}
+          </div>
+        )}
+      </main>
 
-      {/* Модальное окно */}
+      {/* Модалка */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-b from-purple-950 to-indigo-950 rounded-2xl max-w-lg w-full p-6 shadow-2xl border-4 border-purple-700/60">
-            <h2 className="text-2xl font-black text-purple-200 mb-4">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-gradient-to-b from-purple-950 to-indigo-950 rounded-xl max-w-md w-full p-5 sm:p-6 shadow-2xl border-4 border-purple-700/60 my-8">
+            <h2 className="text-xl sm:text-2xl font-bold text-purple-200 mb-4">
               {editingCard ? 'Редактировать вещь' : 'Новая вещь'}
             </h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {(previewUrl || selectedFile) && (
-                <div className="mx-auto w-40 h-40 border-4 border-purple-700 rounded-xl overflow-hidden">
+                <div className="mx-auto w-32 h-32 sm:w-36 sm:h-36 border-4 border-purple-700 rounded-lg overflow-hidden">
                   <img src={previewUrl} alt="preview" className="w-full h-full object-cover" />
                 </div>
               )}
@@ -668,7 +702,7 @@ export default function Cloth() {
                 type="file"
                 accept="image/*"
                 onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                className="block w-full text-purple-200 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-purple-700 file:text-white file:cursor-pointer file:hover:bg-purple-600"
+                className="w-full text-sm text-purple-200 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-purple-700 file:text-white file:text-sm file:cursor-pointer hover:file:bg-purple-600"
               />
 
               <input
@@ -676,68 +710,78 @@ export default function Cloth() {
                 placeholder="Название вещи *"
                 value={form.clothName}
                 onChange={(e) => setForm({ ...form, clothName: e.target.value })}
-                className="w-full bg-purple-900/50 border-2 border-purple-700 rounded-xl px-4 py-3 text-purple-200 placeholder:text-purple-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 outline-none"
+                className="w-full bg-purple-900/50 border-2 border-purple-700 rounded-lg px-3 py-2 text-sm sm:text-base text-purple-200 placeholder:text-purple-400 focus:border-amber-400 outline-none"
                 required
               />
 
-              {/* Выбор категории */}
               <div>
-                <label className="block text-purple-200 mb-1 font-semibold">Категория</label>
+                <label className="block text-purple-200 text-sm font-semibold mb-1">Категория</label>
                 <select
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  className="w-full bg-purple-900/50 border-2 border-purple-700 rounded-xl px-4 py-3 text-purple-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 outline-none"
+                  className="w-full bg-purple-900/50 border-2 border-purple-700 rounded-lg px-3 py-2 text-sm sm:text-base text-purple-200 focus:border-amber-400 outline-none"
                 >
                   {CATEGORIES.map(cat => (
-                    <option key={cat} value={cat} className="bg-purple-900">
-                      {getCategoryLabel(cat)}
-                    </option>
+                    <option key={cat} value={cat}>{getCategoryLabel(cat)}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Выбор цвета из палитры */}
+              {/* ДОБАВЛЕН select для стиля */}
               <div>
-                <label className="block text-purple-200 mb-1 font-semibold">Цвет</label>
+                <label className="block text-purple-200 text-sm font-semibold mb-1">Стиль</label>
+                <select
+                  value={form.style}
+                  onChange={(e) => setForm({ ...form, style: e.target.value })}
+                  className="w-full bg-purple-900/50 border-2 border-purple-700 rounded-lg px-3 py-2 text-sm sm:text-base text-purple-200 focus:border-amber-400 outline-none"
+                >
+                  {STYLES.map(style => (
+                    <option key={style} value={style}>{getStyleLabel(style)}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-purple-200 text-sm font-semibold mb-1">Цвет</label>
                 <div className="relative">
-                  <div 
-                    className="w-full bg-purple-900/50 border-2 border-purple-700 rounded-xl px-4 py-3 text-purple-200 cursor-pointer flex items-center justify-between"
+                  <button
+                    type="button"
                     onClick={() => setShowColorPicker(!showColorPicker)}
+                    className="w-full bg-purple-900/50 border-2 border-purple-700 rounded-lg px-3 py-2 text-sm sm:text-base text-purple-200 flex items-center justify-between"
                   >
-                    <span className="flex items-center">
+                    <span className="flex items-center gap-2 truncate">
                       {form.color ? (
                         <>
                           <span 
-                            className="inline-block w-5 h-5 rounded-full mr-2" 
+                            className="inline-block w-4 h-4 rounded-full flex-shrink-0" 
                             style={{ backgroundColor: getColorFromName(form.color) }}
-                          ></span>
-                          {form.color}
+                          />
+                          <span className="truncate">{form.color}</span>
                         </>
-                      ) : (
-                        'Выберите цвет'
-                      )}
+                      ) : 'Выберите цвет'}
                     </span>
-                    <span className="text-purple-400">▼</span>
-                  </div>
+                    <span className="text-purple-400 flex-shrink-0">▼</span>
+                  </button>
                   
                   {showColorPicker && (
-                    <div className="absolute z-10 mt-1 w-full bg-purple-900 border-2 border-purple-700 rounded-xl p-2 max-h-60 overflow-y-auto">
-                      <div className="grid grid-cols-2 gap-2">
+                    <div className="absolute z-10 mt-1 w-full bg-purple-900 border-2 border-purple-700 rounded-lg p-2 max-h-48 overflow-y-auto">
+                      <div className="grid grid-cols-2 gap-1">
                         {COLOR_PALETTE.map((color) => (
-                          <div
+                          <button
                             key={color.value}
-                            className="flex items-center p-2 hover:bg-purple-800 rounded-lg cursor-pointer"
+                            type="button"
+                            className="flex items-center gap-2 p-1.5 hover:bg-purple-800 rounded-lg text-left"
                             onClick={() => {
                               setForm({ ...form, color: color.name });
                               setShowColorPicker(false);
                             }}
                           >
                             <span 
-                              className="inline-block w-5 h-5 rounded-full mr-2" 
+                              className="inline-block w-4 h-4 rounded-full flex-shrink-0" 
                               style={{ backgroundColor: color.value }}
-                            ></span>
-                            <span className="text-purple-200 text-sm">{color.name}</span>
-                          </div>
+                            />
+                            <span className="text-purple-200 text-xs truncate">{color.name}</span>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -745,26 +789,22 @@ export default function Cloth() {
                 </div>
               </div>
 
-              {/* Выбор сезона */}
               <div>
-                <label className="block text-purple-200 mb-1 font-semibold">Сезон</label>
+                <label className="block text-purple-200 text-sm font-semibold mb-1">Сезон</label>
                 <select
                   value={form.season}
                   onChange={(e) => setForm({ ...form, season: e.target.value })}
-                  className="w-full bg-purple-900/50 border-2 border-purple-700 rounded-xl px-4 py-3 text-purple-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 outline-none"
+                  className="w-full bg-purple-900/50 border-2 border-purple-700 rounded-lg px-3 py-2 text-sm sm:text-base text-purple-200 focus:border-amber-400 outline-none"
                 >
                   {SEASONS.map(season => (
-                    <option key={season} value={season} className="bg-purple-900">
-                      {getSeasonLabel(season)}
-                    </option>
+                    <option key={season} value={season}>{getSeasonLabel(season)}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Ползунок теплоты */}
               <div>
-                <label className="block text-purple-200 mb-1 font-semibold">
-                  Теплота: {form.warmthLevel} / 5
+                <label className="block text-purple-200 text-sm font-semibold mb-1">
+                  Теплота: {form.warmthLevel}/5
                 </label>
                 <input
                   type="range"
@@ -780,17 +820,17 @@ export default function Cloth() {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex flex-col sm:flex-row gap-2 pt-3">
                 <button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 py-3 rounded-xl font-bold text-white transition-all hover:scale-105"
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 py-2.5 rounded-lg font-bold text-white text-sm sm:text-base transition-all"
                 >
                   {editingCard ? 'Сохранить' : 'Создать'}
                 </button>
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex-1 bg-purple-900/50 hover:bg-purple-800/50 py-3 rounded-xl font-bold text-white border-2 border-purple-700 transition-all hover:scale-105"
+                  className="flex-1 bg-purple-900/50 hover:bg-purple-800/50 py-2.5 rounded-lg font-bold text-white border-2 border-purple-700 text-sm sm:text-base transition-all"
                 >
                   Отмена
                 </button>
