@@ -1,4 +1,4 @@
-// src/pages/Cloth.jsx
+// Cloth.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,23 +9,23 @@ const CATEGORIES = ['HEAD', 'TOP_BASE', 'TOP_MID', 'TOP_OUTER', 'BOTTOM', 'SHOES
 const STYLES = ['BUSINESS', 'CASUAL', 'SPORT'];
 const SEASONS = ['SUMMER', 'AUTUMN', 'WINTER', 'SPRING'];
 
-// Палитра цветов
+// Палитра цветов (мягкие оттенки)
 const COLOR_PALETTE = [
-  { name: 'Красный', value: '#FF0000' },
-  { name: 'Синий', value: '#0000FF' },
-  { name: 'Зеленый', value: '#00FF00' },
-  { name: 'Желтый', value: '#FFFF00' },
-  { name: 'Черный', value: '#000000' },
-  { name: 'Белый', value: '#FFFFFF' },
-  { name: 'Серый', value: '#808080' },
-  { name: 'Оранжевый', value: '#FFA500' },
-  { name: 'Фиолетовый', value: '#800080' },
-  { name: 'Розовый', value: '#FFC0CB' },
-  { name: 'Коричневый', value: '#8B4513' },
-  { name: 'Голубой', value: '#87CEEB' },
-  { name: 'Бежевый', value: '#F5F5DC' },
-  { name: 'Бордовый', value: '#800000' },
-  { name: 'Хаки', value: '#808000' },
+  { name: 'Красный', value: '#E57373' },
+  { name: 'Синий', value: '#64B5F6' },
+  { name: 'Зеленый', value: '#81C784' },
+  { name: 'Желтый', value: '#FFD54F' },
+  { name: 'Черный', value: '#2C2C2C' },
+  { name: 'Белый', value: '#F5F5F5' },
+  { name: 'Серый', value: '#9E9E9E' },
+  { name: 'Оранжевый', value: '#FFB74D' },
+  { name: 'Фиолетовый', value: '#BA68C8' },
+  { name: 'Розовый', value: '#F48FB1' },
+  { name: 'Коричневый', value: '#A1887F' },
+  { name: 'Голубой', value: '#81D4FA' },
+  { name: 'Бежевый', value: '#E6D5B8' },
+  { name: 'Бордовый', value: '#A55D5D' },
+  { name: 'Хаки', value: '#A8B28C' },
 ];
 
 export default function Cloth() {
@@ -89,15 +89,15 @@ export default function Cloth() {
 
     try {
       const res = await fetch(`${API_BASE}/cloth/generate-outfits`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          userId: userId,
-          style: selectedStyle,
-          count: 3
-        }),
-      });
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        userId: userId,
+        style: selectedStyle,
+        count: 3
+      }),
+    });
 
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
@@ -238,15 +238,15 @@ export default function Cloth() {
     }
   }, [userId]);
 
-  // Градиент для погоды
+  // Градиент для погоды (мягкие тона)
   const getWeatherGradient = () => {
-    if (!weather) return 'from-purple-900/50 to-indigo-900/50';
+    if (!weather) return 'from-indigo-500/30 to-amber-500/30';
     const temp = weather.current.temp_c;
-    if (temp < -10) return 'from-blue-900/50 to-cyan-900/50';
-    if (temp < 0) return 'from-cyan-900/50 to-blue-900/50';
-    if (temp < 10) return 'from-indigo-900/50 to-purple-900/50';
-    if (temp < 20) return 'from-purple-900/50 to-pink-900/50';
-    return 'from-orange-900/50 to-red-900/50';
+    if (temp < -10) return 'from-indigo-400/40 to-slate-500/40';
+    if (temp < 0) return 'from-slate-400/40 to-indigo-500/40';
+    if (temp < 10) return 'from-indigo-300/40 to-purple-400/40';
+    if (temp < 20) return 'from-amber-300/40 to-indigo-400/40';
+    return 'from-orange-300/40 to-amber-400/40';
   };
 
   // Загрузка карточек
@@ -504,26 +504,26 @@ export default function Cloth() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-400 via-yellow-300 to-amber-500">
-        <div className="bg-purple-950/80 backdrop-blur-xl px-8 py-6 rounded-2xl border-4 border-purple-700">
-          <p className="text-2xl text-purple-200 animate-pulse">Загрузка...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-100 via-slate-100 to-amber-50">
+        <div className="bg-slate-800/80 backdrop-blur-xl px-8 py-6 rounded-2xl border border-indigo-500/30">
+          <p className="text-2xl text-indigo-200 animate-pulse">Загрузка...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-amber-400 via-yellow-300 to-amber-500">
+    <div className="min-h-screen w-full bg-gradient-to-br from-indigo-100 via-slate-100 to-amber-50">
       {/* Хедер */}
-      <header className="sticky top-0 z-40 bg-purple-950/90 backdrop-blur-md border-b border-purple-700 shadow-xl">
+      <header className="sticky top-0 z-40 bg-slate-800/80 backdrop-blur-md border-b border-indigo-500/30 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-0">
             <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left">
-              <h1 className="text-xl sm:text-2xl font-bold text-purple-200 whitespace-nowrap">
+              <h1 className="text-xl sm:text-2xl font-bold text-white whitespace-nowrap">
                 Wear & Shoot
               </h1>
               {userName && (
-                <span className="text-purple-300 text-sm sm:text-base bg-purple-900/50 px-3 py-1 rounded-full">
+                <span className="text-indigo-600 text-sm sm:text-base bg-indigo-100/80 px-3 py-1 rounded-full">
                   Привет, {userName}!
                 </span>
               )}
@@ -532,14 +532,14 @@ export default function Cloth() {
               <button
                 onClick={openStyleModal}
                 disabled={outfitLoading || cards.length < 3}
-                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {outfitLoading ? 'Генерация...' : '✨ Сгенерировать образ'}
               </button>
               <button
                 onClick={handleLogout}
                 disabled={logoutLoading}
-                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {logoutLoading ? 'Выход...' : 'Выйти'}
               </button>
@@ -550,15 +550,15 @@ export default function Cloth() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Блок погоды */}
-        <div className={`mb-6 sm:mb-8 p-4 sm:p-6 bg-gradient-to-br ${getWeatherGradient()} rounded-2xl border border-white/20 backdrop-blur-lg shadow-2xl`}>
+        <div className={`mb-6 sm:mb-8 p-4 sm:p-6 bg-gradient-to-br ${getWeatherGradient()} rounded-2xl border border-indigo-300/40 backdrop-blur-sm shadow-md`}>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0 mb-3 sm:mb-4">
-            <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-700 flex items-center gap-2">
               <span>🌤️</span> Погода сейчас
             </h2>
             <button
               onClick={loadWeather}
               disabled={weatherLoading}
-              className="w-full sm:w-auto px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-4 py-2 bg-white/40 hover:bg-white/60 text-slate-700 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <span>{weatherLoading ? '⏳' : '🔄'}</span>
               <span className="sm:hidden">{weatherLoading ? 'Загрузка...' : 'Обновить'}</span>
@@ -567,47 +567,47 @@ export default function Cloth() {
           </div>
 
           {weatherError ? (
-            <p className="text-white/80 text-center text-sm sm:text-base">{weatherError}</p>
+            <p className="text-slate-600 text-center text-sm sm:text-base">{weatherError}</p>
           ) : weather ? (
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
               <img
                 src={`https:${weather.current.condition.icon}`}
                 alt={weather.current.condition.text}
-                className="w-16 h-16 sm:w-20 sm:h-20 drop-shadow-lg"
+                className="w-16 h-16 sm:w-20 sm:h-20 drop-shadow-md"
               />
               <div className="flex-1 text-center sm:text-left">
                 <div className="flex flex-col sm:flex-row items-center sm:items-baseline gap-2 sm:gap-3">
-                  <p className="text-4xl sm:text-5xl font-extrabold text-white">
+                  <p className="text-4xl sm:text-5xl font-extrabold text-slate-800">
                     {Math.round(weather.current.temp_c)}°
                   </p>
-                  <p className="text-lg sm:text-xl text-white/90 capitalize">
+                  <p className="text-lg sm:text-xl text-slate-700 capitalize">
                     {weather.current.condition.text}
                   </p>
                 </div>
-                <p className="text-sm sm:text-base text-white/80 mt-1">
+                <p className="text-sm sm:text-base text-slate-600 mt-1">
                   Ощущается: {Math.round(weather.current.feelslike_c)}° • 
                   {weather.location.name}, {weather.location.country}
                 </p>
               </div>
             </div>
           ) : (
-            <p className="text-white/80 text-center italic text-sm sm:text-base">Загрузка погоды...</p>
+            <p className="text-slate-600 text-center italic text-sm sm:text-base">Загрузка погоды...</p>
           )}
         </div>
 
         {/* Заголовок и кнопка */}
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 sm:mb-8">
           <div className="text-center sm:text-left">
-            <h2 className="text-3xl sm:text-4xl font-black text-purple-950 drop-shadow-lg">
+            <h2 className="text-3xl sm:text-4xl font-black text-slate-800 drop-shadow-sm">
               Мой гардероб
             </h2>
-            <p className="text-purple-900 text-sm sm:text-base mt-1">
+            <p className="text-indigo-600 text-sm sm:text-base mt-1">
               {cards.length} {cards.length === 1 ? 'вещь' : cards.length >= 2 && cards.length <= 4 ? 'вещи' : 'вещей'}
             </p>
           </div>
           <button
             onClick={openCreate}
-            className="w-full sm:w-auto px-6 py-3 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl shadow-xl transition-all hover:scale-105 flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all hover:scale-105 flex items-center justify-center gap-2"
           >
             <span>➕</span> Добавить вещь
           </button>
@@ -615,19 +615,19 @@ export default function Cloth() {
 
         {/* Сетка карточек */}
         {cards.length === 0 ? (
-          <div className="text-center py-12 bg-white/30 backdrop-blur-sm rounded-2xl">
-            <p className="text-2xl text-purple-900 mb-2">У тебя пока нет вещей 😢</p>
-            <p className="text-purple-800">Нажми кнопку "Добавить вещь" чтобы создать первую карточку!</p>
+          <div className="text-center py-12 bg-white/40 backdrop-blur-sm rounded-2xl border border-indigo-200">
+            <p className="text-2xl text-slate-700 mb-2">У тебя пока нет вещей 😢</p>
+            <p className="text-indigo-600">Нажми кнопку "Добавить вещь" чтобы создать первую карточку!</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             {cards.map((card) => (
               <div
                 key={card.id}
-                className="bg-gradient-to-b from-purple-950 to-indigo-950 backdrop-blur-xl rounded-xl border-4 border-purple-700/60 shadow-2xl overflow-hidden hover:scale-[1.02] transition-all duration-300 flex flex-col"
+                className="bg-gradient-to-b from-slate-800 to-indigo-900 backdrop-blur-sm rounded-xl border border-indigo-500/30 shadow-lg overflow-hidden hover:scale-[1.02] transition-all duration-300 flex flex-col"
               >
                 {/* Изображение */}
-                <div className="relative w-full pt-[75%] bg-purple-900/50">
+                <div className="relative w-full pt-[75%] bg-indigo-900/30">
                   {imageUrls[card.id] ? (
                     <img
                       src={imageUrls[card.id]}
@@ -640,10 +640,10 @@ export default function Cloth() {
                       }}
                     />
                   ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-purple-400/50">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-indigo-400/50">
                       {loadingImages[card.id] ? (
                         <>
-                          <div className="w-10 h-10 border-4 border-purple-400 border-t-transparent rounded-full animate-spin mb-2"></div>
+                          <div className="w-10 h-10 border-4 border-indigo-400 border-t-transparent rounded-full animate-spin mb-2"></div>
                           <span className="text-xs">Загрузка...</span>
                         </>
                       ) : (
@@ -658,22 +658,22 @@ export default function Cloth() {
 
                 {/* Контент */}
                 <div className="p-4 flex-1 flex flex-col">
-                  <h3 className="text-lg font-bold text-purple-200 mb-2 line-clamp-1">
+                  <h3 className="text-lg font-bold text-indigo-200 mb-2 line-clamp-1">
                     {card.clothName || 'Без названия'}
                   </h3>
                   
                   <div className="space-y-1.5 text-xs flex-1">
-                    <p className="text-purple-300/80 flex flex-wrap items-center gap-1">
+                    <p className="text-indigo-300/80 flex flex-wrap items-center gap-1">
                       <span className="font-semibold">Категория:</span> 
                       <span>{getCategoryLabel(card.category)}</span>
                     </p>
                     
-                    <p className="text-purple-300/80 flex flex-wrap items-center gap-1">
+                    <p className="text-indigo-300/80 flex flex-wrap items-center gap-1">
                       <span className="font-semibold">Стиль:</span> 
                       <span>{getStyleLabel(card.style)}</span>
                     </p>
                     
-                    <p className="text-purple-300/80 flex flex-wrap items-center gap-1">
+                    <p className="text-indigo-300/80 flex flex-wrap items-center gap-1">
                       <span className="font-semibold">Цвет:</span>
                       {card.color && (
                         <span 
@@ -684,12 +684,12 @@ export default function Cloth() {
                       <span className="truncate max-w-[100px]">{card.color || '—'}</span>
                     </p>
                     
-                    <p className="text-purple-300/80 flex flex-wrap items-center gap-1">
+                    <p className="text-indigo-300/80 flex flex-wrap items-center gap-1">
                       <span className="font-semibold">Сезон:</span> 
                       <span>{getSeasonLabel(card.season)}</span>
                     </p>
                     
-                    <p className="text-purple-300/80 flex flex-wrap items-center gap-1">
+                    <p className="text-indigo-300/80 flex flex-wrap items-center gap-1">
                       <span className="font-semibold">Теплота:</span>
                       <span className="flex">
                         {'❤️'.repeat(card.warmthLevel || 0)}
@@ -700,7 +700,7 @@ export default function Cloth() {
 
                   <button
                     onClick={() => openEdit(card)}
-                    className="mt-3 w-full bg-amber-400 hover:bg-amber-500 text-purple-950 font-bold py-2 px-3 rounded-lg text-sm transition-all hover:scale-105"
+                    className="mt-3 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-3 rounded-lg text-sm transition-all hover:scale-105"
                   >
                     Редактировать
                   </button>
@@ -713,15 +713,15 @@ export default function Cloth() {
 
       {/* Модалка создания/редактирования */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-gradient-to-b from-purple-950 to-indigo-950 rounded-xl max-w-md w-full p-5 sm:p-6 shadow-2xl border-4 border-purple-700/60 my-8">
-            <h2 className="text-xl sm:text-2xl font-bold text-purple-200 mb-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-gradient-to-b from-slate-800 to-indigo-900 rounded-xl max-w-md w-full p-5 sm:p-6 shadow-xl border border-indigo-500/30 my-8">
+            <h2 className="text-xl sm:text-2xl font-bold text-indigo-200 mb-4">
               {editingCard ? 'Редактировать вещь' : 'Новая вещь'}
             </h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {(previewUrl || selectedFile) && (
-                <div className="mx-auto w-32 h-32 sm:w-36 sm:h-36 border-4 border-purple-700 rounded-lg overflow-hidden">
+                <div className="mx-auto w-32 h-32 sm:w-36 sm:h-36 border-2 border-indigo-500/50 rounded-lg overflow-hidden">
                   <img src={previewUrl} alt="preview" className="w-full h-full object-cover" />
                 </div>
               )}
@@ -730,7 +730,7 @@ export default function Cloth() {
                 type="file"
                 accept="image/*"
                 onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                className="w-full text-sm text-purple-200 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-purple-700 file:text-white file:text-sm file:cursor-pointer hover:file:bg-purple-600"
+                className="w-full text-sm text-indigo-200 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white file:text-sm file:cursor-pointer hover:file:bg-indigo-500"
               />
 
               <input
@@ -738,16 +738,16 @@ export default function Cloth() {
                 placeholder="Название вещи *"
                 value={form.clothName}
                 onChange={(e) => setForm({ ...form, clothName: e.target.value })}
-                className="w-full bg-purple-900/50 border-2 border-purple-700 rounded-lg px-3 py-2 text-sm sm:text-base text-purple-200 placeholder:text-purple-400 focus:border-amber-400 outline-none"
+                className="w-full bg-slate-700/50 border border-indigo-500/30 rounded-lg px-3 py-2 text-sm sm:text-base text-indigo-100 placeholder:text-indigo-400/60 focus:border-amber-500 outline-none"
                 required
               />
 
               <div>
-                <label className="block text-purple-200 text-sm font-semibold mb-1">Категория</label>
+                <label className="block text-indigo-200 text-sm font-semibold mb-1">Категория</label>
                 <select
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  className="w-full bg-purple-900/50 border-2 border-purple-700 rounded-lg px-3 py-2 text-sm sm:text-base text-purple-200 focus:border-amber-400 outline-none"
+                  className="w-full bg-slate-700/50 border border-indigo-500/30 rounded-lg px-3 py-2 text-sm sm:text-base text-indigo-100 focus:border-amber-500 outline-none"
                 >
                   {CATEGORIES.map(cat => (
                     <option key={cat} value={cat}>{getCategoryLabel(cat)}</option>
@@ -756,11 +756,11 @@ export default function Cloth() {
               </div>
 
               <div>
-                <label className="block text-purple-200 text-sm font-semibold mb-1">Стиль</label>
+                <label className="block text-indigo-200 text-sm font-semibold mb-1">Стиль</label>
                 <select
                   value={form.style}
                   onChange={(e) => setForm({ ...form, style: e.target.value })}
-                  className="w-full bg-purple-900/50 border-2 border-purple-700 rounded-lg px-3 py-2 text-sm sm:text-base text-purple-200 focus:border-amber-400 outline-none"
+                  className="w-full bg-slate-700/50 border border-indigo-500/30 rounded-lg px-3 py-2 text-sm sm:text-base text-indigo-100 focus:border-amber-500 outline-none"
                 >
                   {STYLES.map(style => (
                     <option key={style} value={style}>{getStyleLabel(style)}</option>
@@ -769,12 +769,12 @@ export default function Cloth() {
               </div>
 
               <div>
-                <label className="block text-purple-200 text-sm font-semibold mb-1">Цвет</label>
+                <label className="block text-indigo-200 text-sm font-semibold mb-1">Цвет</label>
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setShowColorPicker(!showColorPicker)}
-                    className="w-full bg-purple-900/50 border-2 border-purple-700 rounded-lg px-3 py-2 text-sm sm:text-base text-purple-200 flex items-center justify-between"
+                    className="w-full bg-slate-700/50 border border-indigo-500/30 rounded-lg px-3 py-2 text-sm sm:text-base text-indigo-100 flex items-center justify-between"
                   >
                     <span className="flex items-center gap-2 truncate">
                       {form.color ? (
@@ -787,17 +787,17 @@ export default function Cloth() {
                         </>
                       ) : 'Выберите цвет'}
                     </span>
-                    <span className="text-purple-400 flex-shrink-0">▼</span>
+                    <span className="text-indigo-400 flex-shrink-0">▼</span>
                   </button>
                   
                   {showColorPicker && (
-                    <div className="absolute z-10 mt-1 w-full bg-purple-900 border-2 border-purple-700 rounded-lg p-2 max-h-48 overflow-y-auto">
+                    <div className="absolute z-10 mt-1 w-full bg-slate-700 border border-indigo-500/30 rounded-lg p-2 max-h-48 overflow-y-auto">
                       <div className="grid grid-cols-2 gap-1">
                         {COLOR_PALETTE.map((color) => (
                           <button
                             key={color.value}
                             type="button"
-                            className="flex items-center gap-2 p-1.5 hover:bg-purple-800 rounded-lg text-left"
+                            className="flex items-center gap-2 p-1.5 hover:bg-indigo-800/50 rounded-lg text-left"
                             onClick={() => {
                               setForm({ ...form, color: color.name });
                               setShowColorPicker(false);
@@ -807,7 +807,7 @@ export default function Cloth() {
                               className="inline-block w-4 h-4 rounded-full flex-shrink-0" 
                               style={{ backgroundColor: color.value }}
                             />
-                            <span className="text-purple-200 text-xs truncate">{color.name}</span>
+                            <span className="text-indigo-200 text-xs truncate">{color.name}</span>
                           </button>
                         ))}
                       </div>
@@ -817,11 +817,11 @@ export default function Cloth() {
               </div>
 
               <div>
-                <label className="block text-purple-200 text-sm font-semibold mb-1">Сезон</label>
+                <label className="block text-indigo-200 text-sm font-semibold mb-1">Сезон</label>
                 <select
                   value={form.season}
                   onChange={(e) => setForm({ ...form, season: e.target.value })}
-                  className="w-full bg-purple-900/50 border-2 border-purple-700 rounded-lg px-3 py-2 text-sm sm:text-base text-purple-200 focus:border-amber-400 outline-none"
+                  className="w-full bg-slate-700/50 border border-indigo-500/30 rounded-lg px-3 py-2 text-sm sm:text-base text-indigo-100 focus:border-amber-500 outline-none"
                 >
                   {SEASONS.map(season => (
                     <option key={season} value={season}>{getSeasonLabel(season)}</option>
@@ -830,7 +830,7 @@ export default function Cloth() {
               </div>
 
               <div>
-                <label className="block text-purple-200 text-sm font-semibold mb-1">
+                <label className="block text-indigo-200 text-sm font-semibold mb-1">
                   Теплота: {form.warmthLevel}/5
                 </label>
                 <input
@@ -839,9 +839,9 @@ export default function Cloth() {
                   max="5"
                   value={form.warmthLevel}
                   onChange={(e) => setForm({ ...form, warmthLevel: parseInt(e.target.value) })}
-                  className="w-full accent-amber-400"
+                  className="w-full accent-amber-500"
                 />
-                <div className="flex justify-between text-purple-300 text-xs mt-1">
+                <div className="flex justify-between text-indigo-300 text-xs mt-1">
                   <span>❄️ Холодно</span>
                   <span>🔥 Жарко</span>
                 </div>
@@ -850,14 +850,14 @@ export default function Cloth() {
               <div className="flex flex-col sm:flex-row gap-2 pt-3">
                 <button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 py-2.5 rounded-lg font-bold text-white text-sm sm:text-base transition-all"
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 py-2.5 rounded-lg font-bold text-white text-sm sm:text-base transition-all"
                 >
                   {editingCard ? 'Сохранить' : 'Создать'}
                 </button>
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex-1 bg-purple-900/50 hover:bg-purple-800/50 py-2.5 rounded-lg font-bold text-white border-2 border-purple-700 text-sm sm:text-base transition-all"
+                  className="flex-1 bg-slate-700/50 hover:bg-slate-600/50 py-2.5 rounded-lg font-bold text-indigo-200 border border-indigo-500/30 text-sm sm:text-base transition-all"
                 >
                   Отмена
                 </button>
@@ -869,9 +869,9 @@ export default function Cloth() {
 
       {/* Модалка выбора стиля для генерации */}
       {isStyleModalOpen && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-b from-purple-950 to-indigo-950 rounded-xl max-w-md w-full p-6 shadow-2xl border-4 border-purple-700/60">
-            <h2 className="text-2xl font-bold text-purple-200 mb-4 text-center">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-b from-slate-800 to-indigo-900 rounded-xl max-w-md w-full p-6 shadow-xl border border-indigo-500/30">
+            <h2 className="text-2xl font-bold text-indigo-200 mb-4 text-center">
               Выберите стиль образа
             </h2>
             
@@ -882,8 +882,8 @@ export default function Cloth() {
                   onClick={() => setSelectedStyle(style)}
                   className={`w-full py-3 px-4 rounded-xl font-semibold text-lg transition-all ${
                     selectedStyle === style
-                      ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-purple-950 shadow-lg scale-105'
-                      : 'bg-purple-900/50 text-purple-200 hover:bg-purple-800/70 border-2 border-purple-700'
+                      ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-md'
+                      : 'bg-slate-700/50 text-indigo-200 hover:bg-indigo-800/50 border border-indigo-500/30'
                   }`}
                 >
                   {getStyleLabel(style)}
@@ -894,13 +894,13 @@ export default function Cloth() {
             <div className="flex gap-3">
               <button
                 onClick={generateOutfits}
-                className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 py-3 rounded-xl font-bold text-white transition-all"
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 py-3 rounded-xl font-bold text-white transition-all"
               >
                 Сгенерировать
               </button>
               <button
                 onClick={() => setIsStyleModalOpen(false)}
-                className="flex-1 bg-purple-900/50 hover:bg-purple-800/50 py-3 rounded-xl font-bold text-white border-2 border-purple-700 transition-all"
+                className="flex-1 bg-slate-700/50 hover:bg-slate-600/50 py-3 rounded-xl font-bold text-indigo-200 border border-indigo-500/30 transition-all"
               >
                 Отмена
               </button>
@@ -911,44 +911,44 @@ export default function Cloth() {
 
       {/* Модалка с результатами генерации */}
       {isOutfitModalOpen && generatedOutfits.length > 0 && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-gradient-to-b from-purple-950 to-indigo-950 rounded-xl max-w-4xl w-full p-6 shadow-2xl border-4 border-purple-700/60 my-8 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-gradient-to-b from-slate-800 to-indigo-900 rounded-xl max-w-4xl w-full p-6 shadow-xl border border-indigo-500/30 my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-purple-200">
+              <h2 className="text-2xl font-bold text-indigo-200">
                 Сгенерированные образы (Стиль: {getStyleLabel(selectedStyle)})
               </h2>
               <button
                 onClick={() => setIsOutfitModalOpen(false)}
-                className="text-purple-400 hover:text-purple-200 text-2xl"
+                className="text-indigo-400 hover:text-indigo-200 text-2xl"
               >
                 ✕
               </button>
             </div>
             
             {outfitError && (
-              <div className="bg-red-900/70 border border-red-600 rounded-lg p-4 mb-4 text-red-100">
+              <div className="bg-rose-900/50 border border-rose-600 rounded-lg p-4 mb-4 text-rose-100">
                 {outfitError}
               </div>
             )}
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {generatedOutfits.map((outfit) => (
-                <div key={outfit.id} className="bg-purple-900/50 rounded-lg p-4 border border-purple-700">
-                  <h3 className="text-lg font-bold text-purple-200 mb-2">{outfit.outfitName}</h3>
-                  <p className="text-purple-300 text-sm">Стиль: {getStyleLabel(outfit.style)}</p>
+                <div key={outfit.id} className="bg-slate-700/50 rounded-lg p-4 border border-indigo-500/30">
+                  <h3 className="text-lg font-bold text-indigo-200 mb-2">{outfit.outfitName}</h3>
+                  <p className="text-indigo-300 text-sm">Стиль: {getStyleLabel(outfit.style)}</p>
                   {outfit.temperatureC && (
-                    <p className="text-purple-300 text-sm">Температура: {outfit.temperatureC}°C</p>
+                    <p className="text-indigo-300 text-sm">Температура: {outfit.temperatureC}°C</p>
                   )}
                   {outfit.weatherCondition && (
-                    <p className="text-purple-300 text-sm">Погода: {outfit.weatherCondition}</p>
+                    <p className="text-indigo-300 text-sm">Погода: {outfit.weatherCondition}</p>
                   )}
                   <div className="mt-3">
-                    <p className="text-purple-200 font-semibold text-sm mb-2">Предметы:</p>
+                    <p className="text-indigo-200 font-semibold text-sm mb-2">Предметы:</p>
                     <div className="space-y-1">
                       {outfit.items?.map((item) => (
-                        <div key={item.id} className="text-purple-300 text-xs flex items-center gap-2">
+                        <div key={item.id} className="text-indigo-300 text-xs flex items-center gap-2">
                           <span>{item.clothName}</span>
-                          <span className="text-purple-400">({getCategoryLabel(item.category)})</span>
+                          <span className="text-indigo-400">({getCategoryLabel(item.category)})</span>
                         </div>
                       ))}
                     </div>

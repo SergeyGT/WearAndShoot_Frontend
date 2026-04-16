@@ -1,4 +1,4 @@
-// src/Login.jsx
+// Login.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -77,14 +77,14 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-amber-400 via-yellow-300 to-amber-500 p-4 sm:p-6">
+    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-indigo-100 via-slate-100 to-amber-50 p-4 sm:p-6">
       <div className="
         w-full max-w-xl 
-        bg-gradient-to-b from-purple-950 to-indigo-950 
-        backdrop-blur-xl 
+        bg-gradient-to-b from-slate-800 to-indigo-900 
+        backdrop-blur-sm 
         rounded-3xl 
-        border-4 border-purple-700/60 
-        shadow-2xl shadow-purple-900/70 
+        border border-indigo-500/30 
+        shadow-xl 
         overflow-hidden
         animate-fade-in-up opacity-0 translate-y-8
       " style={{ animationDelay: '0.3s', animationDuration: '0.9s' }}>
@@ -92,20 +92,20 @@ export default function Login() {
         <div className="px-10 pt-14 pb-10 text-center">
           <h1 className="
             text-5xl sm:text-6xl font-black 
-            bg-gradient-to-r from-purple-300 via-purple-200 to-purple-300 
+            bg-gradient-to-r from-indigo-300 via-indigo-200 to-amber-300 
             bg-clip-text text-transparent 
-            drop-shadow-lg tracking-tight
+            drop-shadow-sm tracking-tight
           ">
             Вход в Wear & Shoot
           </h1>
-          <p className="mt-4 text-purple-200/90 text-xl sm:text-2xl font-medium">
+          <p className="mt-4 text-indigo-200/80 text-xl sm:text-2xl font-medium">
             Войди и продолжи творить
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="px-8 sm:px-12 pb-14 space-y-7">
           <div>
-            <label className="block text-base sm:text-lg font-semibold text-purple-200 mb-3">
+            <label className="block text-base sm:text-lg font-semibold text-indigo-200 mb-3">
               Никнейм или Email
             </label>
             <input
@@ -116,14 +116,14 @@ export default function Login() {
               required
               className="
                 w-full px-6 py-5 
-                bg-purple-950/70 
-                border-2 border-purple-600/60 
+                bg-slate-700/50 
+                border border-indigo-500/30 
                 rounded-2xl 
-                text-purple-100 
-                placeholder-purple-400/70 
-                focus:border-amber-400 
-                focus:ring-4 focus:ring-amber-400/30 
-                focus:bg-purple-950/90 
+                text-indigo-100 
+                placeholder-indigo-400/50 
+                focus:border-amber-500 
+                focus:ring-4 focus:ring-amber-500/20 
+                focus:bg-slate-700/70 
                 transition-all duration-300 
                 outline-none 
                 shadow-inner
@@ -133,7 +133,7 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-base sm:text-lg font-semibold text-purple-200 mb-3">
+            <label className="block text-base sm:text-lg font-semibold text-indigo-200 mb-3">
               Пароль
             </label>
             <input
@@ -144,14 +144,14 @@ export default function Login() {
               required
               className="
                 w-full px-6 py-5 
-                bg-purple-950/70 
-                border-2 border-purple-600/60 
+                bg-slate-700/50 
+                border border-indigo-500/30 
                 rounded-2xl 
-                text-purple-100 
-                placeholder-purple-400/70 
-                focus:border-amber-400 
-                focus:ring-4 focus:ring-amber-400/30 
-                focus:bg-purple-950/90 
+                text-indigo-100 
+                placeholder-indigo-400/50 
+                focus:border-amber-500 
+                focus:ring-4 focus:ring-amber-500/20 
+                focus:bg-slate-700/70 
                 transition-all duration-300 
                 outline-none 
                 shadow-inner
@@ -165,10 +165,10 @@ export default function Login() {
             disabled={loading}
             className={`
               w-full py-6 rounded-2xl font-bold text-xl sm:text-2xl tracking-wide
-              transition-all duration-400 shadow-xl
+              transition-all duration-300 shadow-md
               ${loading 
                 ? 'bg-amber-600/50 cursor-not-allowed' 
-                : 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:brightness-110 hover:shadow-amber-500/60 hover:-translate-y-1 active:scale-95 text-purple-950'
+                : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:brightness-105 hover:shadow-amber-500/30 hover:-translate-y-0.5 active:scale-95 text-white'
               }
             `}
           >
@@ -176,18 +176,18 @@ export default function Login() {
           </button>
 
           {status.message && (
-            <div className={`mt-6 p-6 rounded-2xl text-center font-medium text-lg border-2 shadow-lg ${
-              status.type === 'success' ? 'bg-green-900/70 border-green-600 text-green-100' :
-                                          'bg-red-900/70 border-red-600 text-red-100'
+            <div className={`mt-6 p-6 rounded-2xl text-center font-medium text-lg border shadow-md ${
+              status.type === 'success' ? 'bg-emerald-900/50 border-emerald-600 text-emerald-100' :
+                                          'bg-rose-900/50 border-rose-600 text-rose-100'
             }`}>
               {status.message}
             </div>
           )}
         </form>
 
-        <div className="px-10 pb-12 text-center text-purple-300/90 text-lg">
+        <div className="px-10 pb-12 text-center text-indigo-300/70 text-lg">
           Нет аккаунта?{' '}
-          <a href="/register" className="text-amber-300 hover:text-amber-200 font-bold transition-colors">
+          <a href="/register" className="text-amber-400 hover:text-amber-300 font-bold transition-colors">
             Зарегистрироваться
           </a>
         </div>
