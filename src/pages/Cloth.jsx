@@ -1,12 +1,25 @@
 // Cloth.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API_BASE = 'http://localhost:8080';
 
 // Константы для Enum
 const CATEGORIES = ['HEAD', 'TOP_BASE', 'TOP_MID', 'TOP_OUTER', 'BOTTOM', 'SHOES', 'ACCESSORY'];
-const STYLES = ['BUSINESS', 'CASUAL', 'SPORT'];
+
+// ИСПРАВЛЕНО: Все стили из бэкенда
+const OUTFIT_STYLES = [
+    'BUSINESS_CASUAL',
+    'SMART_CASUAL', 
+    'STREETWEAR',
+    'SPORTY',
+    'ELEGANT',
+    'CASUAL',
+    'WINTER_CASUAL',
+    'SUMMER_VACATION',
+    'OFFICE_FORMAL'
+];
+
 const SEASONS = ['SUMMER', 'AUTUMN', 'WINTER', 'SPRING'];
 
 // Палитра цветов (мягкие оттенки)
@@ -50,6 +63,9 @@ export default function Cloth() {
   const [outfitLoading, setOutfitLoading] = useState(false);
   const [outfitError, setOutfitError] = useState(null);
   
+  // Защита от повторных запросов
+  const isGeneratingRef = useRef(false);
+  
   // Модалка выбора стиля для генерации
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState('CASUAL');
@@ -68,6 +84,10 @@ export default function Cloth() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
 
+  // Лайкнутые образы
+  const [likedOutfits, setLikedOutfits] = useState([]);
+  const [showLikedOutfits, setShowLikedOutfits] = useState(false);
+
   // Кэш погоды
   const WEATHER_CACHE_KEY = 'weather_cache';
   const CACHE_TTL = 15 * 60 * 1000;
@@ -78,42 +98,107 @@ export default function Cloth() {
       setOutfitError('Недостаточно вещей для генерации образов (нужно минимум 3)');
       return;
     }
+    setOutfitError(null);
     setIsStyleModalOpen(true);
   };
 
   // Генерация образов с выбранным стилем
   const generateOutfits = async () => {
+    if (isGeneratingRef.current || outfitLoading) {
+      console.log('Генерация уже выполняется');
+      return;
+    }
+    
+    isGeneratingRef.current = true;
     setOutfitLoading(true);
     setOutfitError(null);
     setIsStyleModalOpen(false);
 
     try {
       const res = await fetch(`${API_BASE}/cloth/generate-outfits`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        userId: userId,
-        style: selectedStyle,
-        count: 3
-      }),
-    });
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          style: selectedStyle,
+          count: 3
+        }),
+      });
 
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
-          navigate('/login');
-          return;
+          const meRes = await fetch(`${API_BASE}/auth/me`, {
+            credentials: 'include',
+          });
+          if (!meRes.ok) {
+            navigate('/login');
+            return;
+          }
+          throw new Error('Ошибка авторизации. Попробуйте перезагрузить страницу.');
         }
-        throw new Error('Ошибка генерации');
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Ошибка генерации');
       }
 
       const outfits = await res.json();
+      console.log('Получены образы:', outfits);
       setGeneratedOutfits(outfits);
       setIsOutfitModalOpen(true);
     } catch (err) {
+      console.error('Ошибка генерации:', err);
       setOutfitError('Не удалось сгенерировать образы: ' + err.message);
     } finally {
       setOutfitLoading(false);
+      isGeneratingRef.current = false;
+    }
+  };
+
+  // Функция лайка образа
+  const toggleLike = async (outfitId) => {
+    try {
+      const res = await fetch(`${API_BASE}/cloth/outfits/${outfitId}/like`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ userId: userId }),
+      });
+
+      if (res.ok) {
+        const updatedOutfit = await res.json();
+        
+        // Обновляем в сгенерированных образах
+        setGeneratedOutfits(prev => 
+          prev.map(outfit => 
+            outfit.id === outfitId ? updatedOutfit : outfit
+          )
+        );
+        
+        // Обновляем в лайкнутых
+        if (updatedOutfit.isLiked) {
+          setLikedOutfits(prev => [...prev, updatedOutfit]);
+        } else {
+          setLikedOutfits(prev => prev.filter(o => o.id !== outfitId));
+        }
+      }
+    } catch (err) {
+      console.error('Ошибка при лайке:', err);
+    }
+  };
+
+  // Загрузка лайкнутых образов
+  const loadLikedOutfits = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/cloth/outfits/liked/${userId}`, {
+        credentials: 'include',
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setLikedOutfits(data);
+        setShowLikedOutfits(true);
+      }
+    } catch (err) {
+      console.error('Ошибка загрузки лайкнутых образов:', err);
     }
   };
 
@@ -485,9 +570,15 @@ export default function Cloth() {
 
   const getStyleLabel = (style) => {
     const labels = { 
-      'BUSINESS': 'Деловой', 
-      'CASUAL': 'Повседневный', 
-      'SPORT': 'Спортивный' 
+      'BUSINESS_CASUAL': 'Деловой',
+      'CASUAL': 'Повседневный',
+      'SPORTY': 'Спортивный',
+      'SMART_CASUAL': 'Смарт-кэжуал',
+      'STREETWEAR': 'Стритвир',
+      'ELEGANT': 'Элегантный',
+      'OFFICE_FORMAL': 'Офисный',
+      'WINTER_CASUAL': 'Зимний',
+      'SUMMER_VACATION': 'Летний отпуск'
     };
     return labels[style] || style;
   };
@@ -529,6 +620,12 @@ export default function Cloth() {
               )}
             </div>
             <div className="flex gap-2">
+              <button
+                onClick={loadLikedOutfits}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl transition-all"
+              >
+                ❤️ Избранное
+              </button>
               <button
                 onClick={openStyleModal}
                 disabled={outfitLoading || cards.length < 3}
@@ -762,7 +859,7 @@ export default function Cloth() {
                   onChange={(e) => setForm({ ...form, style: e.target.value })}
                   className="w-full bg-slate-700/50 border border-indigo-500/30 rounded-lg px-3 py-2 text-sm sm:text-base text-indigo-100 focus:border-amber-500 outline-none"
                 >
-                  {STYLES.map(style => (
+                  {OUTFIT_STYLES.map(style => (
                     <option key={style} value={style}>{getStyleLabel(style)}</option>
                   ))}
                 </select>
@@ -876,7 +973,7 @@ export default function Cloth() {
             </h2>
             
             <div className="space-y-3 mb-6">
-              {STYLES.map((style) => (
+              {OUTFIT_STYLES.map((style) => (
                 <button
                   key={style}
                   onClick={() => setSelectedStyle(style)}
@@ -933,8 +1030,16 @@ export default function Cloth() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {generatedOutfits.map((outfit) => (
-                <div key={outfit.id} className="bg-slate-700/50 rounded-lg p-4 border border-indigo-500/30">
-                  <h3 className="text-lg font-bold text-indigo-200 mb-2">{outfit.outfitName}</h3>
+                <div key={outfit.id} className="bg-slate-700/50 rounded-lg p-4 border border-indigo-500/30 relative">
+                  {/* Кнопка лайка */}
+                  <button
+                    onClick={() => toggleLike(outfit.id)}
+                    className="absolute top-2 right-2 text-2xl transition-all hover:scale-125"
+                  >
+                    {outfit.isLiked ? '❤️' : '🤍'}
+                  </button>
+                  
+                  <h3 className="text-lg font-bold text-indigo-200 mb-2 pr-8">{outfit.outfitName}</h3>
                   <p className="text-indigo-300 text-sm">Стиль: {getStyleLabel(outfit.style)}</p>
                   {outfit.temperatureC && (
                     <p className="text-indigo-300 text-sm">Температура: {outfit.temperatureC}°C</p>
@@ -956,6 +1061,49 @@ export default function Cloth() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка с избранными образами */}
+      {showLikedOutfits && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-gradient-to-b from-slate-800 to-indigo-900 rounded-xl max-w-4xl w-full p-6 shadow-xl border border-indigo-500/30 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-indigo-200">
+                ❤️ Избранные образы
+              </h2>
+              <button
+                onClick={() => setShowLikedOutfits(false)}
+                className="text-indigo-400 hover:text-indigo-200 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {likedOutfits.length === 0 ? (
+              <p className="text-indigo-300 text-center py-8">Нет избранных образов</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {likedOutfits.map((outfit) => (
+                  <div key={outfit.id} className="bg-slate-700/50 rounded-lg p-4 border border-indigo-500/30">
+                    <h3 className="text-lg font-bold text-indigo-200 mb-2">{outfit.outfitName}</h3>
+                    <p className="text-indigo-300 text-sm">Стиль: {getStyleLabel(outfit.style)}</p>
+                    <div className="mt-3">
+                      <p className="text-indigo-200 font-semibold text-sm mb-2">Предметы:</p>
+                      <div className="space-y-1">
+                        {outfit.items?.map((item) => (
+                          <div key={item.id} className="text-indigo-300 text-xs flex items-center gap-2">
+                            <span>{item.clothName}</span>
+                            <span className="text-indigo-400">({getCategoryLabel(item.category)})</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
