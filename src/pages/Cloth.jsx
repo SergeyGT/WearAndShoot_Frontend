@@ -7,7 +7,6 @@ const API_BASE = 'http://localhost:8080';
 // Константы для Enum
 const CATEGORIES = ['HEAD', 'TOP_BASE', 'TOP_MID', 'TOP_OUTER', 'BOTTOM', 'SHOES', 'ACCESSORY'];
 
-// ИСПРАВЛЕНО: Все стили из бэкенда
 const OUTFIT_STYLES = [
     'BUSINESS_CASUAL',
     'SMART_CASUAL', 
@@ -69,8 +68,10 @@ export default function Cloth() {
   // Модалка выбора стиля для генерации
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState('CASUAL');
+  const [outfitName, setOutfitName] = useState(''); // ДОБАВЛЕНО: имя образа
+  const [outfitImages, setOutfitImages] = useState({}); // ДОБАВЛЕНО: изображения вещей в образах
 
-  // Модалка
+  // Модалка создания/редактирования вещи
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
   const [form, setForm] = useState({
@@ -87,10 +88,97 @@ export default function Cloth() {
   // Лайкнутые образы
   const [likedOutfits, setLikedOutfits] = useState([]);
   const [showLikedOutfits, setShowLikedOutfits] = useState(false);
+  const [likedOutfitImages, setLikedOutfitImages] = useState({}); // ДОБАВЛЕНО: изображения для избранного
+
+  // Удаленные 
+  const [deletingCardId, setDeletingCardId] = useState(null);
+  const [deletingOutfitId, setDeletingOutfitId] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   // Кэш погоды
   const WEATHER_CACHE_KEY = 'weather_cache';
   const CACHE_TTL = 15 * 60 * 1000;
+
+  // Функция для загрузки изображений вещей в образе
+  const loadOutfitItemImages = async (items) => {
+    const imageMap = {};
+    if (!items || items.length === 0) return imageMap;
+    
+    await Promise.all(items.map(async (item) => {
+      if (item.id) {
+        // Проверяем, есть ли уже загруженное изображение в кэше карточек
+        if (imageUrls[item.id]) {
+          imageMap[item.id] = imageUrls[item.id];
+        } else {
+          try {
+            const imgRes = await fetch(`${API_BASE}/cloth/image/${item.id}`, {
+              credentials: 'include',
+            });
+            if (imgRes.ok) {
+              const blob = await imgRes.blob();
+              if (blob.size > 0) {
+                imageMap[item.id] = URL.createObjectURL(blob);
+              }
+            }
+          } catch (err) {
+            console.error(`Ошибка загрузки изображения для ${item.id}:`, err);
+          }
+        }
+      }
+    }));
+    return imageMap;
+  };
+
+  const deleteCard = async (cardId) => {
+    try {
+      setDeletingCardId(cardId);
+      const res = await fetch(`${API_BASE}/cloth/delete/${cardId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Ошибка удаления'); }
+      if (imageUrls[cardId]?.startsWith('blob:')) URL.revokeObjectURL(imageUrls[cardId]);
+      setCards(prev => prev.filter(c => c.id !== cardId));
+      setImageUrls(prev => { const n = { ...prev }; delete n[cardId]; return n; });
+      alert('Вещь удалена');
+    } catch (err) { alert('Ошибка: ' + err.message); }
+    finally { setDeletingCardId(null); }
+  };
+
+  // Удаление образа
+  const deleteOutfit = async (outfitId, fromLiked = false) => {
+    try {
+      setDeletingOutfitId(outfitId);
+      const res = await fetch(`${API_BASE}/cloth/outfits/${outfitId}`, {
+        method: 'DELETE', credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Ошибка удаления');
+      if (fromLiked) {
+        setLikedOutfits(prev => prev.filter(o => o.id !== outfitId));
+        setLikedOutfitImages(prev => { const n = { ...prev }; delete n[outfitId]; return n; });
+      } else {
+        setGeneratedOutfits(prev => prev.filter(o => o.id !== outfitId));
+        setOutfitImages(prev => { const n = { ...prev }; delete n[outfitId]; return n; });
+      }
+      alert('Образ удален');
+    } catch (err) { alert('Ошибка: ' + err.message); }
+    finally { setDeletingOutfitId(null); }
+  };
+
+  const confirmDelete = (type, id, name) => {
+    setDeleteTarget({ type, id, name });
+    setShowDeleteConfirm(true);
+  };
+
+  const executeDelete = () => {
+    if (!deleteTarget) return;
+    if (deleteTarget.type === 'card') deleteCard(deleteTarget.id);
+    else if (deleteTarget.type === 'outfit') deleteOutfit(deleteTarget.id);
+    else if (deleteTarget.type === 'liked_outfit') deleteOutfit(deleteTarget.id, true);
+    setShowDeleteConfirm(false);
+    setDeleteTarget(null);
+  };
 
   // Функция для открытия модалки выбора стиля
   const openStyleModal = () => {
@@ -99,6 +187,8 @@ export default function Cloth() {
       return;
     }
     setOutfitError(null);
+    setOutfitName(''); // Сбрасываем имя
+    setSelectedStyle('CASUAL'); // Сбрасываем стиль на дефолтный
     setIsStyleModalOpen(true);
   };
 
@@ -109,6 +199,18 @@ export default function Cloth() {
       return;
     }
     
+    const hasTopBase = cards.some(c => c.category === 'TOP_BASE');
+    const hasBottom = cards.some(c => c.category === 'BOTTOM');
+    const missingCategories = [];
+    if (!hasTopBase) missingCategories.push('Верх (футболка/рубашка)');
+    if (!hasBottom) missingCategories.push('Низ (брюки/юбка/шорты)');
+    
+    if (missingCategories.length > 0) {
+        setOutfitError(
+            `Для создания образа нужны: ${missingCategories.join(' и ')}. Добавьте недостающие вещи.`
+        );
+        return; // не отправляем запрос
+    }
     isGeneratingRef.current = true;
     setOutfitLoading(true);
     setOutfitError(null);
@@ -121,7 +223,8 @@ export default function Cloth() {
         credentials: 'include',
         body: JSON.stringify({
           style: selectedStyle,
-          count: 3
+          count: 3,
+          outfitName: outfitName.trim() || null // Отправляем имя образа
         }),
       });
 
@@ -142,6 +245,17 @@ export default function Cloth() {
 
       const outfits = await res.json();
       console.log('Получены образы:', outfits);
+      
+      // Загружаем изображения для всех образов
+      const allImages = {};
+      for (const outfit of outfits) {
+        if (outfit.items && outfit.items.length > 0) {
+          const images = await loadOutfitItemImages(outfit.items);
+          allImages[outfit.id] = images;
+        }
+      }
+      
+      setOutfitImages(allImages);
       setGeneratedOutfits(outfits);
       setIsOutfitModalOpen(true);
     } catch (err) {
@@ -176,8 +290,20 @@ export default function Cloth() {
         // Обновляем в лайкнутых
         if (updatedOutfit.isLiked) {
           setLikedOutfits(prev => [...prev, updatedOutfit]);
+          // Копируем изображения если есть
+          if (outfitImages[outfitId]) {
+            setLikedOutfitImages(prev => ({
+              ...prev,
+              [outfitId]: outfitImages[outfitId]
+            }));
+          }
         } else {
           setLikedOutfits(prev => prev.filter(o => o.id !== outfitId));
+          setLikedOutfitImages(prev => {
+            const newImages = { ...prev };
+            delete newImages[outfitId];
+            return newImages;
+          });
         }
       }
     } catch (err) {
@@ -195,6 +321,16 @@ export default function Cloth() {
       if (res.ok) {
         const data = await res.json();
         setLikedOutfits(data);
+        
+        // Загружаем изображения для избранных образов
+        const allImages = {};
+        for (const outfit of data) {
+          if (outfit.items && outfit.items.length > 0) {
+            const images = await loadOutfitItemImages(outfit.items);
+            allImages[outfit.id] = images;
+          }
+        }
+        setLikedOutfitImages(allImages);
         setShowLikedOutfits(true);
       }
     } catch (err) {
@@ -212,10 +348,25 @@ export default function Cloth() {
       });
 
       if (res.ok) {
+        // Очищаем все blob URLs
         Object.values(imageUrls).forEach(url => {
           if (url && url.startsWith('blob:')) {
             URL.revokeObjectURL(url);
           }
+        });
+        Object.values(outfitImages).forEach(imgMap => {
+          Object.values(imgMap).forEach(url => {
+            if (url && url.startsWith('blob:')) {
+              URL.revokeObjectURL(url);
+            }
+          });
+        });
+        Object.values(likedOutfitImages).forEach(imgMap => {
+          Object.values(imgMap).forEach(url => {
+            if (url && url.startsWith('blob:')) {
+              URL.revokeObjectURL(url);
+            }
+          });
         });
         navigate('/login', { replace: true });
       } else {
@@ -358,6 +509,7 @@ export default function Cloth() {
         setCards(data || []);
         
         if (data && data.length > 0) {
+          // Очищаем старые blob URLs
           Object.values(imageUrls).forEach(url => {
             if (url && url.startsWith('blob:')) {
               URL.revokeObjectURL(url);
@@ -412,6 +564,13 @@ export default function Cloth() {
         if (url && url.startsWith('blob:')) {
           URL.revokeObjectURL(url);
         }
+      });
+      Object.values(outfitImages).forEach(imgMap => {
+        Object.values(imgMap).forEach(url => {
+          if (url && url.startsWith('blob:')) {
+            URL.revokeObjectURL(url);
+          }
+        });
       });
     };
   }, []);
@@ -633,6 +792,11 @@ export default function Cloth() {
               >
                 {outfitLoading ? 'Генерация...' : '✨ Сгенерировать образ'}
               </button>
+              {outfitError && (
+              <div className="mt-2 bg-red-900/50 border border-red-400 rounded-lg p-2 text-red-200 text-sm text-center">
+                  ⚠️ {outfitError}
+              </div>
+          )}
               <button
                 onClick={handleLogout}
                 disabled={logoutLoading}
@@ -795,12 +959,17 @@ export default function Cloth() {
                     </p>
                   </div>
 
-                  <button
-                    onClick={() => openEdit(card)}
-                    className="mt-3 w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-3 rounded-lg text-sm transition-all hover:scale-105"
-                  >
-                    Редактировать
-                  </button>
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={() => openEdit(card)}
+                      className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-3 rounded-lg text-sm transition-all hover:scale-105">
+                      ✏️
+                    </button>
+                    <button onClick={() => confirmDelete('card', card.id, card.clothName)}
+                      disabled={deletingCardId === card.id}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg text-sm transition-all hover:scale-105 disabled:opacity-50">
+                      {deletingCardId === card.id ? '⏳' : '🗑️'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -808,7 +977,7 @@ export default function Cloth() {
         )}
       </main>
 
-      {/* Модалка создания/редактирования */}
+      {/* Модалка создания/редактирования вещи */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
           <div className="bg-gradient-to-b from-slate-800 to-indigo-900 rounded-xl max-w-md w-full p-5 sm:p-6 shadow-xl border border-indigo-500/30 my-8">
@@ -964,13 +1133,34 @@ export default function Cloth() {
         </div>
       )}
 
-      {/* Модалка выбора стиля для генерации */}
+      {/* ============================================ */}
+      {/* МОДАЛКА ВЫБОРА СТИЛЯ И ИМЕНИ ОБРАЗА (ИСПРАВЛЕНО) */}
+      {/* ============================================ */}
       {isStyleModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-b from-slate-800 to-indigo-900 rounded-xl max-w-md w-full p-6 shadow-xl border border-indigo-500/30">
             <h2 className="text-2xl font-bold text-indigo-200 mb-4 text-center">
-              Выберите стиль образа
+              Создание образа
             </h2>
+            
+            {/* ДОБАВЛЕНО: Поле для имени образа */}
+            <div className="mb-4">
+              <label className="block text-indigo-200 text-sm font-semibold mb-2">
+                Название образа (необязательно)
+              </label>
+              <input
+                type="text"
+                value={outfitName}
+                onChange={(e) => setOutfitName(e.target.value)}
+                placeholder="Например: Вечерний выход"
+                className="w-full bg-slate-700/50 border border-indigo-500/30 rounded-lg px-3 py-2 text-indigo-100 placeholder:text-indigo-400/60 focus:border-amber-500 outline-none"
+              />
+              <p className="text-indigo-400 text-xs mt-1">
+                Оставьте пустым для автоматического названия
+              </p>
+            </div>
+            
+            <h3 className="text-lg font-semibold text-indigo-200 mb-3">Выберите стиль:</h3>
             
             <div className="space-y-3 mb-6">
               {OUTFIT_STYLES.map((style) => (
@@ -991,12 +1181,21 @@ export default function Cloth() {
             <div className="flex gap-3">
               <button
                 onClick={generateOutfits}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 py-3 rounded-xl font-bold text-white transition-all"
+                disabled={outfitLoading}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 py-3 rounded-xl font-bold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Сгенерировать
+                {outfitLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    Генерация...
+                  </span>
+                ) : '✨ Создать'}
               </button>
               <button
-                onClick={() => setIsStyleModalOpen(false)}
+                onClick={() => {
+                  setIsStyleModalOpen(false);
+                  setOutfitName('');
+                }}
                 className="flex-1 bg-slate-700/50 hover:bg-slate-600/50 py-3 rounded-xl font-bold text-indigo-200 border border-indigo-500/30 transition-all"
               >
                 Отмена
@@ -1006,17 +1205,19 @@ export default function Cloth() {
         </div>
       )}
 
-      {/* Модалка с результатами генерации */}
+      {/* ============================================ */}
+      {/* МОДАЛКА С РЕЗУЛЬТАТАМИ ГЕНЕРАЦИИ (ИСПРАВЛЕНО) */}
+      {/* ============================================ */}
       {isOutfitModalOpen && generatedOutfits.length > 0 && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-gradient-to-b from-slate-800 to-indigo-900 rounded-xl max-w-4xl w-full p-6 shadow-xl border border-indigo-500/30 my-8 max-h-[90vh] overflow-y-auto">
+          <div className="bg-gradient-to-b from-slate-800 to-indigo-900 rounded-xl max-w-6xl w-full p-6 shadow-xl border border-indigo-500/30 my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-indigo-200">
-                Сгенерированные образы (Стиль: {getStyleLabel(selectedStyle)})
+                {outfitName || 'Сгенерированные образы'}
               </h2>
               <button
                 onClick={() => setIsOutfitModalOpen(false)}
-                className="text-indigo-400 hover:text-indigo-200 text-2xl"
+                className="text-indigo-400 hover:text-indigo-200 text-2xl transition-colors"
               >
                 ✕
               </button>
@@ -1028,35 +1229,74 @@ export default function Cloth() {
               </div>
             )}
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {generatedOutfits.map((outfit) => (
-                <div key={outfit.id} className="bg-slate-700/50 rounded-lg p-4 border border-indigo-500/30 relative">
+                <div key={outfit.id} className="bg-slate-700/50 rounded-xl p-4 border border-indigo-500/30 relative hover:border-indigo-400/50 transition-all">
                   {/* Кнопка лайка */}
-                  <button
-                    onClick={() => toggleLike(outfit.id)}
-                    className="absolute top-2 right-2 text-2xl transition-all hover:scale-125"
-                  >
-                    {outfit.isLiked ? '❤️' : '🤍'}
-                  </button>
+                  <div className="absolute top-3 right-3 flex gap-1 z-10">
+                    <button onClick={() => toggleLike(outfit.id)}
+                      className="text-2xl transition-all hover:scale-125"
+                      title={outfit.isLiked ? 'Убрать из избранного' : 'Добавить в избранное'}>
+                      {outfit.isLiked ? '❤️' : '🤍'}
+                    </button>
+                    <button onClick={() => confirmDelete('outfit', outfit.id, outfit.outfitName)}
+                      disabled={deletingOutfitId === outfit.id}
+                      className="text-xl transition-all hover:scale-125 disabled:opacity-50" title="Удалить образ">
+                      {deletingOutfitId === outfit.id ? '⏳' : '🗑️'}
+                    </button>
+                  </div>
                   
-                  <h3 className="text-lg font-bold text-indigo-200 mb-2 pr-8">{outfit.outfitName}</h3>
-                  <p className="text-indigo-300 text-sm">Стиль: {getStyleLabel(outfit.style)}</p>
-                  {outfit.temperatureC && (
-                    <p className="text-indigo-300 text-sm">Температура: {outfit.temperatureC}°C</p>
-                  )}
-                  {outfit.weatherCondition && (
-                    <p className="text-indigo-300 text-sm">Погода: {outfit.weatherCondition}</p>
-                  )}
-                  <div className="mt-3">
-                    <p className="text-indigo-200 font-semibold text-sm mb-2">Предметы:</p>
-                    <div className="space-y-1">
-                      {outfit.items?.map((item) => (
-                        <div key={item.id} className="text-indigo-300 text-xs flex items-center gap-2">
-                          <span>{item.clothName}</span>
-                          <span className="text-indigo-400">({getCategoryLabel(item.category)})</span>
+                  <h3 className="text-xl font-bold text-indigo-200 mb-3 pr-10">
+                    {outfit.outfitName}
+                  </h3>
+                  
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <span className="px-3 py-1 bg-indigo-600/30 text-indigo-200 rounded-full text-sm">
+                      {getStyleLabel(outfit.style)}
+                    </span>
+                    {outfit.temperatureC && (
+                      <span className="px-3 py-1 bg-slate-600/30 text-indigo-200 rounded-full text-sm">
+                        🌡️ {Math.round(outfit.temperatureC)}°C
+                      </span>
+                    )}
+                    {outfit.weatherCondition && (
+                      <span className="px-3 py-1 bg-slate-600/30 text-indigo-200 rounded-full text-sm">
+                        🌤️ {outfit.weatherCondition}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* ДОБАВЛЕНО: Отображение вещей с фото */}
+                  <div className="space-y-3">
+                    <p className="text-indigo-200 font-semibold text-sm">Состав образа:</p>
+                    {outfit.items?.map((item) => (
+                      <div key={item.id} className="flex items-center gap-3 bg-slate-800/50 rounded-lg p-2">
+                        {/* Фото вещи */}
+                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-indigo-900/30 flex-shrink-0 border border-indigo-500/20">
+                          {outfitImages[outfit.id]?.[item.id] ? (
+                            <img
+                              src={outfitImages[outfit.id][item.id]}
+                              alt={item.clothName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-2xl">
+                              👕
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
+                        
+                        {/* Инфо о вещи */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-indigo-200 font-semibold truncate">
+                            {item.clothName}
+                          </p>
+                          <p className="text-indigo-400 text-xs">
+                            {getCategoryLabel(item.category)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -1065,45 +1305,112 @@ export default function Cloth() {
         </div>
       )}
 
-      {/* Модалка с избранными образами */}
+      {/* ============================================ */}
+      {/* МОДАЛКА С ИЗБРАННЫМИ ОБРАЗАМИ (ИСПРАВЛЕНО) */}
+      {/* ============================================ */}
       {showLikedOutfits && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-gradient-to-b from-slate-800 to-indigo-900 rounded-xl max-w-4xl w-full p-6 shadow-xl border border-indigo-500/30 my-8 max-h-[90vh] overflow-y-auto">
+          <div className="bg-gradient-to-b from-slate-800 to-indigo-900 rounded-xl max-w-6xl w-full p-6 shadow-xl border border-indigo-500/30 my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-indigo-200">
                 ❤️ Избранные образы
               </h2>
               <button
                 onClick={() => setShowLikedOutfits(false)}
-                className="text-indigo-400 hover:text-indigo-200 text-2xl"
+                className="text-indigo-400 hover:text-indigo-200 text-2xl transition-colors"
               >
                 ✕
               </button>
             </div>
             
             {likedOutfits.length === 0 ? (
-              <p className="text-indigo-300 text-center py-8">Нет избранных образов</p>
+              <div className="text-center py-12">
+                <p className="text-4xl mb-4">🤍</p>
+                <p className="text-indigo-300 text-lg">Нет избранных образов</p>
+                <p className="text-indigo-400 text-sm mt-2">
+                  Лайкните понравившиеся образы, чтобы они появились здесь
+                </p>
+              </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {likedOutfits.map((outfit) => (
-                  <div key={outfit.id} className="bg-slate-700/50 rounded-lg p-4 border border-indigo-500/30">
-                    <h3 className="text-lg font-bold text-indigo-200 mb-2">{outfit.outfitName}</h3>
-                    <p className="text-indigo-300 text-sm">Стиль: {getStyleLabel(outfit.style)}</p>
-                    <div className="mt-3">
-                      <p className="text-indigo-200 font-semibold text-sm mb-2">Предметы:</p>
-                      <div className="space-y-1">
-                        {outfit.items?.map((item) => (
-                          <div key={item.id} className="text-indigo-300 text-xs flex items-center gap-2">
-                            <span>{item.clothName}</span>
-                            <span className="text-indigo-400">({getCategoryLabel(item.category)})</span>
-                          </div>
-                        ))}
+                  <div key={outfit.id} className="bg-slate-700/50 rounded-xl p-4 border border-indigo-500/30 hover:border-rose-400/50 transition-all">
+                        <div className="flex justify-between items-start mb-3">
+                      <h3 className="text-xl font-bold text-indigo-200">{outfit.outfitName}</h3>
+                      <div className="flex gap-1">
+                        <span className="text-2xl">❤️</span>
+                        <button onClick={() => confirmDelete('liked_outfit', outfit.id, outfit.outfitName)}
+                          disabled={deletingOutfitId === outfit.id}
+                          className="text-xl transition-all hover:scale-125 disabled:opacity-50" title="Удалить образ">
+                          {deletingOutfitId === outfit.id ? '⏳' : '🗑️'}
+                        </button>
                       </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <span className="px-3 py-1 bg-indigo-600/30 text-indigo-200 rounded-full text-sm">
+                        {getStyleLabel(outfit.style)}
+                      </span>
+                    </div>
+                    
+                    {/* ДОБАВЛЕНО: Фото вещей в избранном */}
+                    <div className="space-y-3">
+                      <p className="text-indigo-200 font-semibold text-sm">Состав образа:</p>
+                      {outfit.items?.map((item) => (
+                        <div key={item.id} className="flex items-center gap-3 bg-slate-800/50 rounded-lg p-2">
+                          <div className="w-16 h-16 rounded-lg overflow-hidden bg-indigo-900/30 flex-shrink-0 border border-indigo-500/20">
+                            {likedOutfitImages[outfit.id]?.[item.id] ? (
+                              <img
+                                src={likedOutfitImages[outfit.id][item.id]}
+                                alt={item.clothName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-2xl">
+                                👕
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-indigo-200 font-semibold truncate">
+                              {item.clothName}
+                            </p>
+                            <p className="text-indigo-400 text-xs">
+                              {getCategoryLabel(item.category)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+        {/* Модалка подтверждения удаления */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+          <div className="bg-gradient-to-b from-slate-800 to-indigo-900 rounded-xl max-w-sm w-full p-6 shadow-xl border border-red-500/30">
+            <h3 className="text-xl font-bold text-red-400 mb-3">Подтверждение удаления</h3>
+            <p className="text-indigo-200 mb-2">
+              {deleteTarget?.type === 'card' ? 'Удалить вещь?' : 'Удалить образ?'}
+            </p>
+            <p className="text-amber-400 font-semibold mb-4">"{deleteTarget?.name}"?</p>
+            {deleteTarget?.type === 'card' && (
+              <p className="text-red-400/80 text-sm mb-4">⚠️ Вещь удалится из всех образов!</p>
+            )}
+            <div className="flex gap-3">
+              <button onClick={executeDelete}
+                className="flex-1 bg-red-600 hover:bg-red-700 py-2.5 rounded-lg font-bold text-white transition-all">
+                Удалить
+              </button>
+              <button onClick={() => { setShowDeleteConfirm(false); setDeleteTarget(null); }}
+                className="flex-1 bg-slate-700/50 hover:bg-slate-600/50 py-2.5 rounded-lg font-bold text-indigo-200 border border-indigo-500/30 transition-all">
+                Отмена
+              </button>
+            </div>
           </div>
         </div>
       )}
