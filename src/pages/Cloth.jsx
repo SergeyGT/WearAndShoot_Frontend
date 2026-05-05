@@ -40,6 +40,14 @@ const COLOR_PALETTE = [
   { name: 'Хаки', value: '#A8B28C' },
 ];
 
+const COLOR_SCHEMES = [
+    { value: 'ANY', label: 'Любые цвета' },
+    { value: 'MONOCHROME', label: 'Монохромная (оттенки одного цвета)' },
+    { value: 'COMPLEMENTARY', label: 'Комплементарная (контрастные)' },
+    { value: 'ANALOGOUS', label: 'Аналоговая (соседние цвета)' },
+    { value: 'NEUTRAL', label: 'Нейтральная (базовые цвета)' },
+];
+
 export default function Cloth() {
   const navigate = useNavigate();
   const [userId, setUserId] = useState(null);
@@ -71,6 +79,8 @@ export default function Cloth() {
   const [outfitName, setOutfitName] = useState(''); // ДОБАВЛЕНО: имя образа
   const [outfitImages, setOutfitImages] = useState({}); // ДОБАВЛЕНО: изображения вещей в образах
 
+  const [colorScheme, setColorScheme] = useState('ANY');
+
   // Модалка создания/редактирования вещи
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState(null);
@@ -95,6 +105,15 @@ export default function Cloth() {
   const [deletingOutfitId, setDeletingOutfitId] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+
+  useEffect(() => {
+    if (outfitError) {
+      const timer = setTimeout(() => {
+        setOutfitError(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [outfitError]);
 
   // Кэш погоды
   const WEATHER_CACHE_KEY = 'weather_cache';
@@ -189,6 +208,7 @@ export default function Cloth() {
     setOutfitError(null);
     setOutfitName(''); // Сбрасываем имя
     setSelectedStyle('CASUAL'); // Сбрасываем стиль на дефолтный
+    setColorScheme('ANY');
     setIsStyleModalOpen(true);
   };
 
@@ -224,7 +244,8 @@ export default function Cloth() {
         body: JSON.stringify({
           style: selectedStyle,
           count: 3,
-          outfitName: outfitName.trim() || null // Отправляем имя образа
+          outfitName: outfitName.trim() || null ,
+        colorScheme: colorScheme
         }),
       });
 
@@ -269,7 +290,7 @@ export default function Cloth() {
 
   // Функция лайка образа
   const toggleLike = async (outfitId) => {
-    try {
+     try {
       const res = await fetch(`${API_BASE}/cloth/outfits/${outfitId}/like`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -283,14 +304,19 @@ export default function Cloth() {
         // Обновляем в сгенерированных образах
         setGeneratedOutfits(prev => 
           prev.map(outfit => 
-            outfit.id === outfitId ? updatedOutfit : outfit
+            outfit.id === outfitId ? { ...outfit, isLiked: updatedOutfit.isLiked } : outfit
           )
         );
         
-        // Обновляем в лайкнутых
+        // Обновляем лайкнутые: добавляем или убираем
         if (updatedOutfit.isLiked) {
-          setLikedOutfits(prev => [...prev, updatedOutfit]);
-          // Копируем изображения если есть
+          // Добавляем в избранное с уже загруженными картинками
+          setLikedOutfits(prev => {
+            // Проверяем, нет ли уже такого
+            if (prev.some(o => o.id === outfitId)) return prev;
+            return [...prev, updatedOutfit];
+          });
+          // Копируем картинки из outfitImages если есть
           if (outfitImages[outfitId]) {
             setLikedOutfitImages(prev => ({
               ...prev,
@@ -298,6 +324,7 @@ export default function Cloth() {
             }));
           }
         } else {
+          // Убираем из избранного
           setLikedOutfits(prev => prev.filter(o => o.id !== outfitId));
           setLikedOutfitImages(prev => {
             const newImages = { ...prev };
@@ -309,7 +336,7 @@ export default function Cloth() {
     } catch (err) {
       console.error('Ошибка при лайке:', err);
     }
-  };
+};
 
   // Загрузка лайкнутых образов
   const loadLikedOutfits = async () => {
@@ -322,12 +349,15 @@ export default function Cloth() {
         const data = await res.json();
         setLikedOutfits(data);
         
-        // Загружаем изображения для избранных образов
-        const allImages = {};
+        // Загружаем картинки только для новых образов
+        const allImages = { ...likedOutfitImages }; // сохраняем старые
         for (const outfit of data) {
-          if (outfit.items && outfit.items.length > 0) {
+          // Пропускаем если картинки уже есть
+          if (!allImages[outfit.id] && outfit.items?.length > 0) {
             const images = await loadOutfitItemImages(outfit.items);
-            allImages[outfit.id] = images;
+            if (Object.keys(images).length > 0) {
+              allImages[outfit.id] = images;
+            }
           }
         }
         setLikedOutfitImages(allImages);
@@ -336,7 +366,7 @@ export default function Cloth() {
     } catch (err) {
       console.error('Ошибка загрузки лайкнутых образов:', err);
     }
-  };
+};
 
   // Выход
   const handleLogout = async () => {
@@ -717,10 +747,10 @@ export default function Cloth() {
   const getCategoryLabel = (category) => {
     const labels = { 
       'HEAD': 'Головной убор',
-      'TOP_BASE': 'База (нижний слой)', 
-      'TOP_MID': 'Средний слой',
-      'TOP_OUTER': 'Верхняя одежда',
-      'BOTTOM': 'Низ',
+      'TOP_BASE': 'Верх (футболка/рубашка)', 
+      'TOP_MID': 'Средний слой (свитер/кофта)',
+      'TOP_OUTER': 'Верхняя одежда (куртка, пальто)',
+      'BOTTOM': 'Низ (брюки,юбка)',
       'SHOES': 'Обувь',
       'ACCESSORY': 'Аксессуар'
     };
@@ -1144,20 +1174,35 @@ export default function Cloth() {
             </h2>
             
             {/* ДОБАВЛЕНО: Поле для имени образа */}
+             <div className="mb-4">
+                <label className="block text-indigo-200 text-sm font-semibold mb-2">
+                    Название образа (необязательно)
+                </label>
+                <input
+                    type="text"
+                    value={outfitName}
+                    onChange={(e) => setOutfitName(e.target.value)}
+                    placeholder="Например: Вечерний выход"
+                    className="w-full bg-slate-700/50 border border-indigo-500/30 rounded-lg px-3 py-2 text-indigo-100 placeholder:text-indigo-400/60 focus:border-amber-500 outline-none"
+                />
+            </div>
+
+            {/* ДОБАВЛЕНО: Выбор цветовой схемы */}
             <div className="mb-4">
-              <label className="block text-indigo-200 text-sm font-semibold mb-2">
-                Название образа (необязательно)
-              </label>
-              <input
-                type="text"
-                value={outfitName}
-                onChange={(e) => setOutfitName(e.target.value)}
-                placeholder="Например: Вечерний выход"
-                className="w-full bg-slate-700/50 border border-indigo-500/30 rounded-lg px-3 py-2 text-indigo-100 placeholder:text-indigo-400/60 focus:border-amber-500 outline-none"
-              />
-              <p className="text-indigo-400 text-xs mt-1">
-                Оставьте пустым для автоматического названия
-              </p>
+                <label className="block text-indigo-200 text-sm font-semibold mb-2">
+                    Цветовая схема
+                </label>
+                <select 
+                    value={colorScheme} 
+                    onChange={(e) => setColorScheme(e.target.value)}
+                    className="w-full bg-slate-700/50 border border-indigo-500/30 rounded-lg px-3 py-2 text-indigo-100 focus:border-amber-500 outline-none"
+                >
+                    {COLOR_SCHEMES.map(scheme => (
+                        <option key={scheme.value} value={scheme.value}>
+                            {scheme.label}
+                        </option>
+                    ))}
+                </select>
             </div>
             
             <h3 className="text-lg font-semibold text-indigo-200 mb-3">Выберите стиль:</h3>
@@ -1224,8 +1269,14 @@ export default function Cloth() {
             </div>
             
             {outfitError && (
-              <div className="bg-rose-900/50 border border-rose-600 rounded-lg p-4 mb-4 text-rose-100">
-                {outfitError}
+              <div className="bg-rose-900/50 border border-rose-600 rounded-lg p-4 mb-4 text-rose-100 flex justify-between items-center">
+                <span>⚠️ {outfitError}</span>
+                <button 
+                  onClick={() => setOutfitError(null)}
+                  className="text-rose-300 hover:text-rose-100 ml-3 text-xl"
+                >
+                  ✕
+                </button>
               </div>
             )}
             
@@ -1274,16 +1325,12 @@ export default function Cloth() {
                         {/* Фото вещи */}
                         <div className="w-16 h-16 rounded-lg overflow-hidden bg-indigo-900/30 flex-shrink-0 border border-indigo-500/20">
                           {outfitImages[outfit.id]?.[item.id] ? (
-                            <img
-                              src={outfitImages[outfit.id][item.id]}
-                              alt={item.clothName}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-2xl">
-                              👕
-                            </div>
-                          )}
+    <img src={outfitImages[outfit.id][item.id]} alt={item.clothName} className="w-full h-full object-cover" />
+) : (
+    <div className="w-full h-full flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+)}
                         </div>
                         
                         {/* Инфо о вещи */}
