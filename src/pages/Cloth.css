@@ -1175,3 +1175,33 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+.card__tag--all-season {
+  background: #F0FDF4;
+  color: #166534;
+}
+
+/* Погодные градиенты */
+.weather-gradient-default {
+  background: linear-gradient(135deg, #DBEAFE, #FFFBEB);
+}
+
+.weather-gradient-cold {
+  background: linear-gradient(135deg, #BFDBFE, #E2E8F0);
+}
+
+.weather-gradient-cool {
+  background: linear-gradient(135deg, #E2E8F0, #DBEAFE);
+}
+
+.weather-gradient-mild {
+  background: linear-gradient(135deg, #DBEAFE, #E9D5FF);
+}
+
+.weather-gradient-warm {
+  background: linear-gradient(135deg, #FFFBEB, #DBEAFE);
+}
+
+.weather-gradient-hot {
+  background: linear-gradient(135deg, #FED7AA, #FFFBEB);
+}

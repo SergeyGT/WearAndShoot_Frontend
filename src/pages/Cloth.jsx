@@ -20,7 +20,7 @@ const OUTFIT_STYLES = [
     'OFFICE_FORMAL'
 ];
 
-const SEASONS = ['SUMMER', 'AUTUMN', 'WINTER', 'SPRING'];
+const SEASONS = ['SUMMER', 'AUTUMN', 'WINTER', 'SPRING', 'ALL_SEASON'];
 
 // Палитра цветов
 const COLOR_PALETTE = [
@@ -79,7 +79,7 @@ const getStyleLabel = (style) => {
 };
 
 const getSeasonLabel = (season) => {
-    const labels = { 'SUMMER': 'Лето', 'AUTUMN': 'Осень', 'WINTER': 'Зима', 'SPRING': 'Весна' };
+    const labels = { 'SUMMER': 'Лето', 'AUTUMN': 'Осень', 'WINTER': 'Зима', 'SPRING': 'Весна' , 'ALL_SEASON': 'Всесезонная'};
     return labels[season] || season;
 };
 
@@ -89,15 +89,14 @@ const getColorFromName = (colorName) => {
 };
 
 const getWeatherGradient = (weather) => {
-    if (!weather) return 'weather-gradient-default';
+     if (!weather) return 'weather-gradient-default';
     const temp = weather.current.temp_c;
-    if (temp < -10) return 'weather-gradient-default';
-    if (temp < 0) return 'weather-gradient-default';
-    if (temp < 10) return 'weather-gradient-default';
-    if (temp < 20) return 'weather-gradient-default';
-    return 'weather-gradient-default';
+    if (temp < -10) return 'weather-gradient-cold';
+    if (temp < 0) return 'weather-gradient-cool';
+    if (temp < 10) return 'weather-gradient-mild';
+    if (temp < 20) return 'weather-gradient-warm';
+    return 'weather-gradient-hot';
 };
-
 export default function Cloth() {
   const navigate = useNavigate();
   const [userId, setUserId] = useState(null);
@@ -281,7 +280,9 @@ export default function Cloth() {
           style: selectedStyle,
           count: 3,
           outfitName: outfitName.trim() || null,
-          colorScheme: colorScheme
+          colorScheme: colorScheme,
+          lat: weather?.location?.lat || null,  // ДОБАВЛЕНО
+          lon: weather?.location?.lon || null 
         }),
       });
 
