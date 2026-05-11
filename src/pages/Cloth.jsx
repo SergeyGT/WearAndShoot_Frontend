@@ -554,6 +554,11 @@ export default function Cloth() {
     };
     if (!clothData.clothName) { alert('Название вещи обязательно!'); return; }
 
+    if (!form.color || form.color.trim() === '') {
+        alert('Выберите цвет вещи!');
+        return;
+    }
+
     const formData = new FormData();
     formData.append('clothData', new Blob([JSON.stringify(clothData)], { type: 'application/json' }));
     if (selectedFile) { formData.append('image', selectedFile); }
