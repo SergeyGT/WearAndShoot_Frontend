@@ -97,16 +97,35 @@ const getWeatherGradient = (weather) => {
     if (temp < 20) return 'weather-gradient-warm';
     return 'weather-gradient-hot';
 };
+
 export default function Cloth() {
   const navigate = useNavigate();
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState('');
   const [cards, setCards] = useState([]);
+  const [filteredCards, setFilteredCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [imageUrls, setImageUrls] = useState({});
   const [loadingImages, setLoadingImages] = useState({});
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  // Фильтры
+  const [filters, setFilters] = useState({
+    categories: [],
+    styles: [],
+    colors: [],
+    seasons: [],
+    warmthRange: { min: 1, max: 5 }
+  });
+  const [tempFilters, setTempFilters] = useState({
+    categories: [],
+    styles: [],
+    colors: [],
+    seasons: [],
+    warmthRange: { min: 1, max: 5 }
+  });
 
   // Погода
   const [weather, setWeather] = useState(null);
@@ -152,6 +171,111 @@ export default function Cloth() {
   const [deletingOutfitId, setDeletingOutfitId] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+
+  // ============ ФИЛЬТРАЦИЯ ============
+  const applyFilters = () => {
+    let filtered = [...cards];
+    
+    // Фильтр по категориям
+    if (tempFilters.categories.length > 0) {
+      filtered = filtered.filter(card => tempFilters.categories.includes(card.category));
+    }
+    
+    // Фильтр по стилям
+    if (tempFilters.styles.length > 0) {
+      filtered = filtered.filter(card => tempFilters.styles.includes(card.style));
+    }
+    
+    // Фильтр по цветам
+    if (tempFilters.colors.length > 0) {
+      filtered = filtered.filter(card => tempFilters.colors.includes(card.color));
+    }
+    
+    // Фильтр по сезонам
+    if (tempFilters.seasons.length > 0) {
+      filtered = filtered.filter(card => tempFilters.seasons.includes(card.season));
+    }
+    
+    // Фильтр по теплоте
+    filtered = filtered.filter(card => 
+      card.warmthLevel >= tempFilters.warmthRange.min && 
+      card.warmthLevel <= tempFilters.warmthRange.max
+    );
+    
+    setFilteredCards(filtered);
+    setFilters({ ...tempFilters });
+  };
+
+  const resetFilters = () => {
+    setTempFilters({
+      categories: [],
+      styles: [],
+      colors: [],
+      seasons: [],
+      warmthRange: { min: 1, max: 5 }
+    });
+    setFilteredCards(cards);
+    setFilters({
+      categories: [],
+      styles: [],
+      colors: [],
+      seasons: [],
+      warmthRange: { min: 1, max: 5 }
+    });
+  };
+
+  const toggleFilterCategory = (category) => {
+    setTempFilters(prev => ({
+      ...prev,
+      categories: prev.categories.includes(category)
+        ? prev.categories.filter(c => c !== category)
+        : [...prev.categories, category]
+    }));
+  };
+
+  const toggleFilterStyle = (style) => {
+    setTempFilters(prev => ({
+      ...prev,
+      styles: prev.styles.includes(style)
+        ? prev.styles.filter(s => s !== style)
+        : [...prev.styles, style]
+    }));
+  };
+
+  const toggleFilterColor = (color) => {
+    setTempFilters(prev => ({
+      ...prev,
+      colors: prev.colors.includes(color)
+        ? prev.colors.filter(c => c !== color)
+        : [...prev.colors, color]
+    }));
+  };
+
+  const toggleFilterSeason = (season) => {
+    setTempFilters(prev => ({
+      ...prev,
+      seasons: prev.seasons.includes(season)
+        ? prev.seasons.filter(s => s !== season)
+        : [...prev.seasons, season]
+    }));
+  };
+
+  const updateWarmthRange = (min, max) => {
+    setTempFilters(prev => ({
+      ...prev,
+      warmthRange: { min, max }
+    }));
+  };
+
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (filters.categories.length > 0) count++;
+    if (filters.styles.length > 0) count++;
+    if (filters.colors.length > 0) count++;
+    if (filters.seasons.length > 0) count++;
+    if (filters.warmthRange.min > 1 || filters.warmthRange.max < 5) count++;
+    return count;
+  };
 
   // ============ ВСЯ ЛОГИКА (БЭК НЕ ТРОГАЕМ) ============
   useEffect(() => {
@@ -201,7 +325,9 @@ export default function Cloth() {
       });
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Ошибка удаления'); }
       if (imageUrls[cardId]?.startsWith('blob:')) URL.revokeObjectURL(imageUrls[cardId]);
-      setCards(prev => prev.filter(c => c.id !== cardId));
+      const updatedCards = cards.filter(c => c.id !== cardId);
+      setCards(updatedCards);
+      setFilteredCards(updatedCards);
       setImageUrls(prev => { const n = { ...prev }; delete n[cardId]; return n; });
       alert('Вещь удалена');
     } catch (err) { alert('Ошибка: ' + err.message); }
@@ -281,7 +407,7 @@ export default function Cloth() {
           count: 3,
           outfitName: outfitName.trim() || null,
           colorScheme: colorScheme,
-          lat: weather?.location?.lat || null,  // ДОБАВЛЕНО
+          lat: weather?.location?.lat || null,
           lon: weather?.location?.lon || null 
         }),
       });
@@ -486,6 +612,7 @@ export default function Cloth() {
         if (!res.ok) { if (res.status === 401 || res.status === 403) { navigate('/login', { replace: true }); return; } throw new Error(`HTTP ${res.status}`); }
         const data = await res.json();
         setCards(data || []);
+        setFilteredCards(data || []);
         
         if (data && data.length > 0) {
           Object.values(imageUrls).forEach(url => { if (url?.startsWith('blob:')) URL.revokeObjectURL(url); });
@@ -579,6 +706,7 @@ export default function Cloth() {
       if (cardsRes.ok) {
         const updatedCards = await cardsRes.json();
         setCards(updatedCards);
+        setFilteredCards(updatedCards);
         Object.values(imageUrls).forEach(url => { if (url?.startsWith('blob:')) URL.revokeObjectURL(url); });
         const newImageUrls = {};
         if (updatedCards?.length > 0) {
@@ -592,6 +720,7 @@ export default function Cloth() {
           }));
         }
         setImageUrls(newImageUrls);
+        resetFilters();
       }
     } catch (err) { console.error(err); alert('Ошибка сохранения: ' + err.message); }
   };
@@ -616,6 +745,8 @@ export default function Cloth() {
     if (count >= 2 && count <= 4) return 'вещи';
     return 'вещей';
   };
+
+  const displayCards = filteredCards.length > 0 ? filteredCards : cards;
 
   return (
     <div className="page-container">
@@ -683,23 +814,168 @@ export default function Cloth() {
         <div className="section-header">
           <div>
             <h2 className="section-header__title">Мой гардероб</h2>
-            <p className="section-header__count">{cards.length} {pluralize(cards.length)}</p>
+            <p className="section-header__count">{displayCards.length} {pluralize(displayCards.length)} из {cards.length}</p>
           </div>
-          <button onClick={openCreate} className="btn btn--blue btn--lg">
-            <span>➕</span> Добавить вещь
-          </button>
+          <div style={{display: 'flex', gap: '1rem'}}>
+            <button 
+              onClick={() => setIsFilterOpen(!isFilterOpen)} 
+              className={`btn ${getActiveFiltersCount() > 0 ? 'btn--blue' : 'btn--outline'}`}
+            >
+              🔍 Фильтры {getActiveFiltersCount() > 0 && `(${getActiveFiltersCount()})`}
+            </button>
+            <button onClick={openCreate} className="btn btn--blue btn--lg">
+              <span>➕</span> Добавить вещь
+            </button>
+          </div>
         </div>
 
+        {/* Панель фильтров */}
+        {isFilterOpen && (
+          <div className="filter-panel">
+            <div className="filter-panel__header">
+              <h3 className="filter-panel__title">🎯 Фильтрация гардероба</h3>
+              <button onClick={resetFilters} className="btn btn--outline btn--sm">Сбросить все</button>
+            </div>
+
+            <div className="filter-panel__grid">
+              {/* Категории */}
+              <div className="filter-group">
+                <div className="filter-group__header">
+                  <span className="filter-group__icon">📁</span>
+                  <span className="filter-group__title">Категории</span>
+                </div>
+                <div className="filter-group__options">
+                  {CATEGORIES.map(cat => (
+                    <button                      key={cat}
+                      onClick={() => toggleFilterCategory(cat)}
+                      className={`filter-chip ${tempFilters.categories.includes(cat) ? 'filter-chip--active' : ''}`}
+                    >
+                      {getCategoryLabel(cat)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Стили */}
+              <div className="filter-group">
+                <div className="filter-group__header">
+                  <span className="filter-group__icon">✨</span>
+                  <span className="filter-group__title">Стили</span>
+                </div>
+                <div className="filter-group__options">
+                  {OUTFIT_STYLES.map(style => (
+                    <button
+                      key={style}
+                      onClick={() => toggleFilterStyle(style)}
+                      className={`filter-chip ${tempFilters.styles.includes(style) ? 'filter-chip--active' : ''}`}
+                    >
+                      {getStyleLabel(style)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Цвета */}
+              <div className="filter-group">
+                <div className="filter-group__header">
+                  <span className="filter-group__icon">🎨</span>
+                  <span className="filter-group__title">Цвета</span>
+                </div>
+                <div className="filter-group__colors">
+                  {COLOR_PALETTE.map(color => (
+                    <button
+                      key={color.name}
+                      onClick={() => toggleFilterColor(color.name)}
+                      className={`filter-color-chip ${tempFilters.colors.includes(color.name) ? 'filter-color-chip--active' : ''}`}
+                      style={{ backgroundColor: color.value }}
+                      title={color.name}
+                    >
+                      {tempFilters.colors.includes(color.name) && <span className="filter-color-chip__check">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Сезоны */}
+              <div className="filter-group">
+                <div className="filter-group__header">
+                  <span className="filter-group__icon">🌿</span>
+                  <span className="filter-group__title">Сезоны</span>
+                </div>
+                <div className="filter-group__options">
+                  {SEASONS.map(season => (
+                    <button
+                      key={season}
+                      onClick={() => toggleFilterSeason(season)}
+                      className={`filter-chip ${tempFilters.seasons.includes(season) ? 'filter-chip--active' : ''}`}
+                    >
+                      {getSeasonLabel(season)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Теплота */}
+              <div className="filter-group filter-group--full">
+                <div className="filter-group__header">
+                  <span className="filter-group__icon">🌡️</span>
+                  <span className="filter-group__title">Теплота: от {tempFilters.warmthRange.min} до {tempFilters.warmthRange.max}</span>
+                </div>
+                <div className="filter-group__range">
+                  <span>❄️</span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="5"
+                    value={tempFilters.warmthRange.min}
+                    onChange={(e) => updateWarmthRange(parseInt(e.target.value), tempFilters.warmthRange.max)}
+                    className="filter-range__min"
+                  />
+                  <input
+                    type="range"
+                    min="1"
+                    max="5"
+                    value={tempFilters.warmthRange.max}
+                    onChange={(e) => updateWarmthRange(tempFilters.warmthRange.min, parseInt(e.target.value))}
+                    className="filter-range__max"
+                  />
+                  <span>🔥</span>
+                </div>
+                <div className="filter-group__range-labels">
+                  <span>Холодно</span>
+                  <span>Тепло</span>
+                  <span>Жарко</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="filter-panel__footer">
+              <button onClick={applyFilters} className="btn btn--blue">
+                Применить фильтры ({tempFilters.categories.length + tempFilters.styles.length + tempFilters.colors.length + tempFilters.seasons.length})
+              </button>
+              <button onClick={() => setIsFilterOpen(false)} className="btn btn--outline">
+                Закрыть
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Сетка карточек */}
-        {cards.length === 0 ? (
+        {displayCards.length === 0 ? (
           <div className="empty-state">
             <p className="empty-state__icon">😢</p>
-            <p className="empty-state__title">У тебя пока нет вещей</p>
-            <p className="empty-state__text">Нажми кнопку "Добавить вещь" чтобы создать первую карточку!</p>
+            <p className="empty-state__title">
+              {cards.length > 0 ? 'Нет вещей под выбранные фильтры' : 'У тебя пока нет вещей'}
+            </p>
+            <p className="empty-state__text">
+              {cards.length > 0 
+                ? 'Попробуйте изменить параметры фильтрации' 
+                : 'Нажми кнопку "Добавить вещь" чтобы создать первую карточку!'}
+            </p>
           </div>
         ) : (
           <div className="cards-grid">
-            {cards.map((card) => (
+            {displayCards.map((card) => (
               <div key={card.id} className="card">
                 <div className="card__image-wrapper">
                   {imageUrls[card.id] ? (
