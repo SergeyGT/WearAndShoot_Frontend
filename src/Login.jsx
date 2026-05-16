@@ -1,6 +1,7 @@
 // Login.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import './Auth.css';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -55,7 +56,22 @@ export default function Login() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || 'Неверный логин или пароль');
+        if (res.status === 401) {
+          if (data.message?.toLowerCase().includes('user') || 
+              data.message?.toLowerCase().includes('not found')) {
+            throw new Error('Пользователь с таким именем не найден');
+          } else if (data.message?.toLowerCase().includes('password')) {
+            throw new Error('Неверный пароль');
+          } else {
+            throw new Error('Неверный логин или пароль');
+          }
+        } else if (res.status === 404) {
+          throw new Error('Пользователь не найден');
+        } else if (res.status === 400) {
+          throw new Error('Некорректные данные. Проверьте логин и пароль');
+        } else {
+          throw new Error(data.message || 'Ошибка при входе. Попробуйте позже');
+        }
       }
 
       setStatus({
@@ -67,9 +83,18 @@ export default function Login() {
         navigate('/cloth', { replace: true });
       }, 1200);
     } catch (err) {
+      let errorMessage = err.message || 'Ошибка входа';
+      
+      if (errorMessage.toLowerCase().includes('network') || 
+          errorMessage.toLowerCase().includes('fetch')) {
+        errorMessage = 'Не удалось подключиться к серверу. Проверьте соединение';
+      } else if (errorMessage.toLowerCase().includes('json')) {
+        errorMessage = 'Ошибка обработки ответа от сервера';
+      }
+      
       setStatus({
         type: 'error',
-        message: err.message || 'Ошибка входа',
+        message: errorMessage,
       });
     } finally {
       setLoading(false);
@@ -77,130 +102,74 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-indigo-100 via-slate-100 to-amber-50 p-4 sm:p-6">
-      <div className="
-        w-full max-w-xl 
-        bg-gradient-to-b from-slate-800 to-indigo-900 
-        backdrop-blur-sm 
-        rounded-3xl 
-        border border-indigo-500/30 
-        shadow-xl 
-        overflow-hidden
-        animate-fade-in-up opacity-0 translate-y-8
-      " style={{ animationDelay: '0.3s', animationDuration: '0.9s' }}>
-        
-        <div className="px-10 pt-14 pb-10 text-center">
-          <h1 className="
-            text-5xl sm:text-6xl font-black 
-            bg-gradient-to-r from-indigo-300 via-indigo-200 to-amber-300 
-            bg-clip-text text-transparent 
-            drop-shadow-sm tracking-tight
-          ">
-            Вход в Wear & Shoot
-          </h1>
-          <p className="mt-4 text-indigo-200/80 text-xl sm:text-2xl font-medium">
-            Войди и продолжи творить
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="px-8 sm:px-12 pb-14 space-y-7">
-          <div>
-            <label className="block text-base sm:text-lg font-semibold text-indigo-200 mb-3">
-              Никнейм или Email
-            </label>
-            <input
-              type="text"
-              name="username"
-              value={formData.username}
-              onChange={handleChange}
-              required
-              className="
-                w-full px-6 py-5 
-                bg-slate-700/50 
-                border border-indigo-500/30 
-                rounded-2xl 
-                text-indigo-100 
-                placeholder-indigo-400/50 
-                focus:border-amber-500 
-                focus:ring-4 focus:ring-amber-500/20 
-                focus:bg-slate-700/70 
-                transition-all duration-300 
-                outline-none 
-                shadow-inner
-              "
-              placeholder="cool_guy_228 или you@example.com"
-            />
+    <div className="auth-page">
+      <div className="auth-container">
+        <div className="auth-card auth-card--login">
+          <div className="auth-header">
+            <h1 className="auth-title">Добро пожаловать</h1>
+            <p className="auth-subtitle">Войдите в аккаунт Wear & Shoot</p>
           </div>
 
-          <div>
-            <label className="block text-base sm:text-lg font-semibold text-indigo-200 mb-3">
-              Пароль
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              className="
-                w-full px-6 py-5 
-                bg-slate-700/50 
-                border border-indigo-500/30 
-                rounded-2xl 
-                text-indigo-100 
-                placeholder-indigo-400/50 
-                focus:border-amber-500 
-                focus:ring-4 focus:ring-amber-500/20 
-                focus:bg-slate-700/70 
-                transition-all duration-300 
-                outline-none 
-                shadow-inner
-              "
-              placeholder="••••••••••"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className={`
-              w-full py-6 rounded-2xl font-bold text-xl sm:text-2xl tracking-wide
-              transition-all duration-300 shadow-md
-              ${loading 
-                ? 'bg-amber-600/50 cursor-not-allowed' 
-                : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:brightness-105 hover:shadow-amber-500/30 hover:-translate-y-0.5 active:scale-95 text-white'
-              }
-            `}
-          >
-            {loading ? 'Входим...' : 'Войти'}
-          </button>
-
-          {status.message && (
-            <div className={`mt-6 p-6 rounded-2xl text-center font-medium text-lg border shadow-md ${
-              status.type === 'success' ? 'bg-emerald-900/50 border-emerald-600 text-emerald-100' :
-                                          'bg-rose-900/50 border-rose-600 text-rose-100'
-            }`}>
-              {status.message}
+          <form onSubmit={handleSubmit} className="auth-form">
+            <div className="form-group">
+              <label className="form-label">Никнейм или Email</label>
+              <input
+                type="text"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                required
+                className="form-input"
+                placeholder="cool_guy_228 или you@example.com"
+              />
             </div>
-          )}
-        </form>
 
-        <div className="px-10 pb-12 text-center text-indigo-300/70 text-lg">
-          Нет аккаунта?{' '}
-          <a href="/register" className="text-amber-400 hover:text-amber-300 font-bold transition-colors">
-            Зарегистрироваться
-          </a>
+            <div className="form-group">
+              <label className="form-label">Пароль</label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                className="form-input"
+                placeholder="••••••••••"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className={`btn-submit ${loading ? 'btn-submit--loading' : ''}`}
+            >
+              {loading ? 'Вход...' : 'Войти'}
+            </button>
+
+            {status.message && (
+              <div className={`auth-message auth-message--${status.type}`}>
+                {status.type === 'error' && (
+                  <svg className="message-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+                {status.type === 'success' && (
+                  <svg className="message-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+                {status.message}
+              </div>
+            )}
+          </form>
+
+          <div className="auth-footer">
+            Нет аккаунта?{' '}
+            <a href="/register" className="auth-link">
+              Зарегистрироваться
+            </a>
+          </div>
         </div>
       </div>
-
-      <style jsx global>{`
-        @keyframes fadeInUp {
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in-up {
-          animation: fadeInUp 0.9s ease-out forwards;
-        }
-      `}</style>
     </div>
   );
 }
