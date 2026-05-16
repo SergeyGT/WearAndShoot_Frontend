@@ -720,7 +720,33 @@ export default function Cloth() {
           }));
         }
         setImageUrls(newImageUrls);
-        resetFilters();
+        //resetFilters();
+        if (filters.categories.length > 0 || filters.styles.length > 0 || 
+        filters.colors.length > 0 || filters.seasons.length > 0 ||
+        filters.warmthRange.min > 1 || filters.warmthRange.max < 5) {
+        // Применяем те же фильтры к обновлённому списку
+        let filtered = [...updatedCards];
+        
+        if (filters.categories.length > 0) {
+            filtered = filtered.filter(card => filters.categories.includes(card.category));
+        }
+        if (filters.styles.length > 0) {
+            filtered = filtered.filter(card => filters.styles.includes(card.style));
+        }
+        if (filters.colors.length > 0) {
+            filtered = filtered.filter(card => filters.colors.includes(card.color));
+        }
+        if (filters.seasons.length > 0) {
+            filtered = filtered.filter(card => filters.seasons.includes(card.season));
+        }
+        filtered = filtered.filter(card => 
+            card.warmthLevel >= filters.warmthRange.min && 
+            card.warmthLevel <= filters.warmthRange.max
+        );
+        setFilteredCards(filtered);
+    } else {
+        setFilteredCards(updatedCards);
+    }
       }
     } catch (err) { console.error(err); alert('Ошибка сохранения: ' + err.message); }
   };
